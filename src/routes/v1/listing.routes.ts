@@ -8,6 +8,7 @@ import {
     createListingSchema,
     updateListingSchema,
 } from "../../validators/listing.validator";
+import { sendSuccess } from "../../utils/response";
 
 const router = express.Router();
 const listingService = new ListingService();
@@ -118,6 +119,44 @@ router.get("/:id/bookings", authenticate, async (req, res, next) => {
             (req as AuthRequest).user!.id,
         );
         res.json({ success: true, data: bookings });
+    } catch (error) {
+        next(error);
+    }
+});
+
+import { supabase } from "../../config/supabase";
+import { ForbiddenError } from "../../utils/errors";
+
+router.post("/:id/cohosts", authenticate, async (req, res, next) => {
+    try {
+        const listingId = Number(req.params.id);
+        const userId = (req as AuthRequest).user!.id;
+        const { co_host_id } = req.body;
+
+        const { data: listing } = await supabase
+            .from("listings")
+            .select("host_id")
+            .eq("id", listingId)
+            .single();
+        if (listing?.host_id !== userId) {
+            throw new ForbiddenError("Only host can add co-hosts");
+        }
+
+        const { data, error } = await supabase
+            .from("co_hosts")
+            .insert({
+                listing_id: listingId,
+                host_id: userId,
+                co_host_id: co_host_id,
+                can_edit_listing: req.body.can_edit_listing || false,
+                can_access_messages: req.body.can_access_messages || false,
+                can_respond_messages: req.body.can_respond_messages || false,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        sendSuccess(res, data, 201);
     } catch (error) {
         next(error);
     }
