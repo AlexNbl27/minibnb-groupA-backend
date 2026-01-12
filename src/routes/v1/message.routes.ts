@@ -6,8 +6,33 @@ import { sendMessageSchema } from "../../validators/message.validator";
 import { sendSuccess } from "../../utils/response";
 
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   name: Messages
+ *   description: Messaging system
+ */
 const messageService = new MessageService();
 
+/**
+ * @swagger
+ * /conversations/{conversationId}:
+ *   get:
+ *     summary: Get messages in a conversation
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: conversationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of messages
+ */
 router.get("/:conversationId", authenticate, async (req, res, next) => {
     try {
         const messages = await messageService.getByConversation(
@@ -20,6 +45,35 @@ router.get("/:conversationId", authenticate, async (req, res, next) => {
     }
 });
 
+/**
+ * @swagger
+ * /conversations/{conversationId}/messages:
+ *   post:
+ *     summary: Send a message in a conversation
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: conversationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - content
+ *             properties:
+ *               content:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Message sent
+ */
 router.post(
     "/:conversationId/messages",
     authenticate,

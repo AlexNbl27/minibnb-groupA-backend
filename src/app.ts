@@ -5,6 +5,8 @@ import { env } from "./config/env";
 import { connectRedis } from "./config/redis";
 import routes from "./routes";
 import { errorHandler } from "./middlewares/error.middleware";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger";
 
 const app = express();
 
@@ -16,8 +18,30 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use("/api", routes);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Health check
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check endpoint
+ *     description: Returns the status of the server
+ *     responses:
+ *       200:
+ *         description: Server is up and running
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
 app.get("/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
