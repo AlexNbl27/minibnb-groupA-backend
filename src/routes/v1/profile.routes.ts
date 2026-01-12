@@ -1,6 +1,6 @@
 import express from "express";
 import { supabase } from "../../config/supabase";
-import { authenticate } from "../../middlewares/auth.middleware";
+import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validation.middleware";
 import { updateProfileSchema } from "../../validators/user.validator";
 import { sendSuccess } from "../../utils/response";
@@ -12,7 +12,7 @@ router.get("/me", authenticate, async (req, res, next) => {
         const { data, error } = await supabase
             .from("profiles")
             .select("*")
-            .eq("id", req.user!.id)
+            .eq("id", (req as AuthRequest).user!.id)
             .single();
 
         if (error) throw error;
@@ -31,7 +31,7 @@ router.patch(
             const { data, error } = await supabase
                 .from("profiles")
                 .update(req.body)
-                .eq("id", req.user!.id)
+                .eq("id", (req as AuthRequest).user!.id)
                 .select()
                 .single();
 
