@@ -107,4 +107,20 @@ router.delete("/:id", authenticate, async (req, res, next) => {
     }
 });
 
+// GET /api/v1/listings/:id/bookings (Host only)
+import { BookingService } from "../../services/booking.service";
+const bookingService = new BookingService();
+
+router.get("/:id/bookings", authenticate, async (req, res, next) => {
+    try {
+        const bookings = await bookingService.getByListing(
+            Number(req.params.id),
+            (req as AuthRequest).user!.id,
+        );
+        res.json({ success: true, data: bookings });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;
