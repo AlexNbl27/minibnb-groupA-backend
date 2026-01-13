@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  api:
+    image: ghcr.io/alexnbl27/minibnb-groupa-backend:latest
+    container_name: minibnb-backend-api
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - FRONTEND_URL=${FRONTEND_URL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minibnb-backend.rule=Host(`minibnb-backend.vincentmagnien.com`)"
+      - "traefik.http.routers.minibnb-backend.entrypoints=websecure"
+      - "traefik.http.routers.minibnb-backend.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.minibnb-backend.loadbalancer.server.port=5000"
+    depends_on:
+      - redis
+    networks:
+      - traefik
+      - minibnb
+
+  redis:
+    image: redis:alpine
+    container_name: minibnb-backend-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    networks:
+      - minibnb
+
+networks:
+  minibnb:
+  traefik:
+    external: true
