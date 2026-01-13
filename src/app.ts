@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use("/api", routes);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/api-docs", swaggerUi.serve as any, swaggerUi.setup(swaggerSpec) as any); // as any pour éviter les erreurs de type
 
 // Health check
 /**
@@ -44,6 +44,15 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  */
 app.get("/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Root route
+app.get("/", (req, res) => {
+    res.json({
+        message: "Welcome to MiniBnB API",
+        docs: "/api-docs",
+        health: "/health",
+    });
 });
 
 // Gestion d'erreurs
