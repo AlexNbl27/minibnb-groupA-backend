@@ -29,17 +29,43 @@ const messageService = new MessageService();
  *         required: true
  *         schema:
  *           type: integer
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
  *     responses:
  *       200:
  *         description: List of messages
  */
 router.get("/:conversationId", authenticate, async (req, res, next) => {
     try {
-        const messages = await messageService.getByConversation(
+        const pagination = {
+            page: req.query.page ? Number(req.query.page) : 1,
+            limit: req.query.limit ? Number(req.query.limit) : 10,
+        };
+
+        const result = await messageService.getByConversation(
             Number(req.params.conversationId),
             (req as AuthRequest).user!.id,
+            pagination
         );
-        sendSuccess(res, messages);
+
+        res.json({
+            success: true,
+            data: result.data,
+            meta: {
+                total: result.total,
+                page: pagination.page,
+                limit: pagination.limit,
+                totalPages: Math.ceil(result.total / pagination.limit)
+            }
+        });
     } catch (error) {
         next(error);
     }

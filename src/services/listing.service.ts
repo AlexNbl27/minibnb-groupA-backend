@@ -27,13 +27,19 @@ export class ListingService {
     }
 
     // Récupérer toutes les annonces (avec cache)
-    async getAll(filters?: {
-        city?: string;
-        min_price?: number;
-        max_price?: number;
-        guests?: number;
-    }): Promise<Listing[]> {
-        let query = supabase.from("listings").select("*").eq("is_active", true);
+    async getAll(
+        filters?: {
+            city?: string;
+            min_price?: number;
+            max_price?: number;
+            guests?: number;
+        },
+        pagination: { page: number; limit: number } = { page: 1, limit: 10 },
+    ): Promise<{ data: Listing[]; total: number }> {
+        let query = supabase
+            .from("listings")
+            .select("*", { count: "exact" })
+            .eq("is_active", true);
 
         if (filters?.city) {
             query = query.ilike("city", `%${filters.city}%`);
@@ -48,9 +54,18 @@ export class ListingService {
             query = query.gte("max_guests", filters.guests);
         }
 
-        const { data, error } = await query;
+        const from = (pagination.page - 1) * pagination.limit;
+        const to = from + pagination.limit - 1;
+
+        query = query.range(from, to);
+
+        const { data, error, count } = await query;
         if (error) throw error;
-        return data;
+
+        return {
+            data: data || [],
+            total: count || 0
+        };
     }
 
     // Récupérer une annonce par ID

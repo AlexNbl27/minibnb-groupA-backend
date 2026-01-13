@@ -35,21 +35,30 @@ export class MessageService {
     async getByConversation(
         conversationId: number,
         userId: string,
-    ): Promise<Message[]> {
+        pagination: { page: number; limit: number } = { page: 1, limit: 10 },
+    ): Promise<{ data: Message[]; total: number }> {
         // Vérifier permission
         const canView = await this.checkViewPermission(conversationId, userId);
         if (!canView) {
             throw new ForbiddenError("You cannot view this conversation");
         }
 
-        const { data, error } = await supabase
+        const from = (pagination.page - 1) * pagination.limit;
+        const to = from + pagination.limit - 1;
+
+        const { data, error, count } = await supabase
             .from("messages")
-            .select("*, sender:profiles(first_name, last_name, avatar_url)")
+            .select("*, sender:profiles(first_name, last_name, avatar_url)", { count: "exact" })
             .eq("conversation_id", conversationId)
-            .order("created_at", { ascending: true });
+            .order("created_at", { ascending: true })
+            .range(from, to);
 
         if (error) throw error;
-        return data;
+
+        return {
+            data: data || [],
+            total: count || 0
+        };
     }
 
     // Vérifier permission d'envoi

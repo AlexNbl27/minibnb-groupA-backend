@@ -44,6 +44,16 @@ const cacheService = new CacheService();
  *         name: guests
  *         schema:
  *           type: integer
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
  *     responses:
  *       200:
  *         description: List of listings
@@ -61,9 +71,23 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
             guests: req.query.guests ? Number(req.query.guests) : undefined,
         };
 
-        const listings = await listingService.getAll(filters);
+        const pagination = {
+            page: req.query.page ? Number(req.query.page) : 1,
+            limit: req.query.limit ? Number(req.query.limit) : 10,
+        };
 
-        res.json({ success: true, data: listings });
+        const result = await listingService.getAll(filters, pagination);
+
+        res.json({
+            success: true,
+            data: result.data,
+            meta: {
+                total: result.total,
+                page: pagination.page,
+                limit: pagination.limit,
+                totalPages: Math.ceil(result.total / pagination.limit)
+            }
+        });
     } catch (error) {
         next(error);
     }
@@ -256,17 +280,43 @@ const bookingService = new BookingService();
  *         required: true
  *         schema:
  *           type: integer
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
  *     responses:
  *       200:
  *         description: List of bookings
  */
 router.get("/:id/bookings", authenticate, async (req, res, next) => {
     try {
-        const bookings = await bookingService.getByListing(
+        const pagination = {
+            page: req.query.page ? Number(req.query.page) : 1,
+            limit: req.query.limit ? Number(req.query.limit) : 10,
+        };
+
+        const result = await bookingService.getByListing(
             Number(req.params.id),
             (req as AuthRequest).user!.id,
+            pagination
         );
-        res.json({ success: true, data: bookings });
+
+        res.json({
+            success: true,
+            data: result.data,
+            meta: {
+                total: result.total,
+                page: pagination.page,
+                limit: pagination.limit,
+                totalPages: Math.ceil(result.total / pagination.limit)
+            }
+        });
     } catch (error) {
         next(error);
     }

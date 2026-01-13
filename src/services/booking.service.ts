@@ -72,19 +72,34 @@ export class BookingService {
     }
 
     // Récupérer les réservations d'un utilisateur
-    async getByUser(userId: string): Promise<Booking[]> {
-        const { data, error } = await supabase
+    async getByUser(
+        userId: string,
+        pagination: { page: number; limit: number } = { page: 1, limit: 10 },
+    ): Promise<{ data: Booking[]; total: number }> {
+        const from = (pagination.page - 1) * pagination.limit;
+        const to = from + pagination.limit - 1;
+
+        const { data, error, count } = await supabase
             .from("bookings")
-            .select("*, listing:listings(*)")
+            .select("*, listing:listings(*)", { count: "exact" })
             .eq("guest_id", userId)
-            .order("check_in", { ascending: false });
+            .order("check_in", { ascending: false })
+            .range(from, to);
 
         if (error) throw error;
-        return data;
+
+        return {
+            data: data || [],
+            total: count || 0
+        };
     }
 
     // Récupérer les réservations d'un listing (hôte/co-hôte)
-    async getByListing(listingId: number, userId: string): Promise<Booking[]> {
+    async getByListing(
+        listingId: number,
+        userId: string,
+        pagination: { page: number; limit: number } = { page: 1, limit: 10 },
+    ): Promise<{ data: Booking[]; total: number }> {
         // Vérifier permission (hôte ou co-hôte)
         const canView = await this.checkViewPermission(listingId, userId);
         if (!canView) {
@@ -93,14 +108,22 @@ export class BookingService {
             );
         }
 
-        const { data, error } = await supabase
+        const from = (pagination.page - 1) * pagination.limit;
+        const to = from + pagination.limit - 1;
+
+        const { data, error, count } = await supabase
             .from("bookings")
-            .select("*, guest:profiles(first_name, last_name, avatar_url)")
+            .select("*, guest:profiles(first_name, last_name, avatar_url)", { count: "exact" })
             .eq("listing_id", listingId)
-            .order("check_in", { ascending: false });
+            .order("check_in", { ascending: false })
+            .range(from, to);
 
         if (error) throw error;
-        return data;
+
+        return {
+            data: data || [],
+            total: count || 0
+        };
     }
 
     private async checkViewPermission(
