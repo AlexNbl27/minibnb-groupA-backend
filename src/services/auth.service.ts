@@ -33,4 +33,13 @@ export class AuthService {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
     }
+
+    async refreshSession(refreshToken: string) {
+        const { data, error } = await supabase.auth.refreshSession({
+            refresh_token: refreshToken,
+        });
+
+        if (error) throw error;
+        return data;
+    }
 }

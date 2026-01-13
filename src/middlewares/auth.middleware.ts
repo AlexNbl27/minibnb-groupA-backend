@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { supabase } from "../config/supabase";
 import { UnauthorizedError } from "../utils/errors";
+import { COOKIE_NAMES } from "../config/cookies";
 
 export interface AuthRequest extends Request {
     user?: {
@@ -15,15 +16,20 @@ export const authenticate = async (
     next: NextFunction,
 ) => {
     try {
-        const authHeader = req.headers.authorization;
+        let token = req.cookies?.[COOKIE_NAMES.ACCESS_TOKEN];
 
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            throw new UnauthorizedError(
-                "Missing or invalid authorization header",
-            );
+        if (!token) {
+            const authHeader = req.headers.authorization;
+            if (authHeader && authHeader.startsWith("Bearer ")) {
+                token = authHeader.split(" ")[1];
+            }
         }
 
-        const token = authHeader.split(" ")[1];
+        if (!token) {
+            throw new UnauthorizedError(
+                "Missing authentication token",
+            );
+        }
 
         const { data, error } = await supabase.auth.getUser(token);
 
