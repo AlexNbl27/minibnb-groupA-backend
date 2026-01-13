@@ -1,5 +1,6 @@
 import express from "express";
 import { AuthService } from "../../services/auth.service";
+import { ConflictError } from "../../utils/errors";
 import { validate } from "../../middlewares/validation.middleware";
 import { signupSchema, loginSchema } from "../../validators/user.validator";
 import { sendSuccess } from "../../utils/response";
@@ -54,7 +55,14 @@ router.post("/signup", validate(signupSchema), async (req, res, next) => {
             last_name,
         );
         sendSuccess(res, { user: data.user, session: data.session }, 201);
-    } catch (error) {
+    } catch (error: any) {
+        if (
+            error.message === "User already registered" ||
+            error.code === "user_already_exists"
+        ) {
+            next(new ConflictError("User already exists"));
+            return;
+        }
         next(error);
     }
 });
