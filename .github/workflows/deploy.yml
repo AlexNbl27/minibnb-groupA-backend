@@ -76,7 +76,17 @@ jobs:
           echo "Looking for stack '$STACK_NAME'..."
           # Get list of stacks and filter by name
           STACK_INFO=$(curl -s -H "Authorization: Bearer $JWT" "$PORTAINER_URL/api/stacks")
-          STACK_ID=$(echo "$STACK_INFO" | jq -r ".[] | select(.Name == \"$STACK_NAME\") | .Id")
+          TARGET_STACK=$(echo "$STACK_INFO" | jq -r ".[] | select(.Name == \"$STACK_NAME\")")
+          STACK_ID=$(echo "$TARGET_STACK" | jq -r ".Id")
+          # Try to get EndpointId from the stack itself if possible
+          STACK_ENDPOINT_ID=$(echo "$TARGET_STACK" | jq -r ".EndpointId")
+
+          if [ ! -z "$STACK_ENDPOINT_ID" ] && [ "$STACK_ENDPOINT_ID" != "null" ]; then
+            ENDPOINT_ID=$STACK_ENDPOINT_ID
+            echo "Using Endpoint ID from stack: $ENDPOINT_ID"
+          else
+            echo "Using default Endpoint ID: $ENDPOINT_ID"
+          fi
 
           # Read content of docker-compose.prod.yml
           COMPOSE_FILE_CONTENT=$(cat docker-compose.prod.yml | jq -Rs .)
@@ -84,8 +94,6 @@ jobs:
           if [ -z "$STACK_ID" ]; then
             echo "Stack '$STACK_NAME' not found. Creating new stack..."
             # Create Stack (Type 2 = Docker Compose / Standalone)
-            # Need to specify endpointId (usually 1 for local/primary)
-            # Assuming endpointID 1. If user has multiple environments, this might need flexible config.
 
             CREATE_RESPONSE=$(curl -s -X POST "$PORTAINER_URL/api/stacks?type=2&method=string&endpointId=$ENDPOINT_ID" \
               -H "Authorization: Bearer $JWT" \
@@ -96,7 +104,6 @@ jobs:
           else
             echo "Stack '$STACK_NAME' found (ID: $STACK_ID). Updating..."
             # Update Stack
-            # We assume Env vars are managed in Portainer UI or we could pass "Env" array here if needed.
             # pullImage: true forces pulling the new latest image
 
             UPDATE_RESPONSE=$(curl -s -X PUT "$PORTAINER_URL/api/stacks/$STACK_ID?endpointId=$ENDPOINT_ID" \
