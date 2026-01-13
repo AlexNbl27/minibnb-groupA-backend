@@ -61,7 +61,13 @@ jobs:
           PORTAINER_USER: ${{ secrets.DOCKER_PORTAINER_USER }}
           PORTAINER_PASSWORD: ${{ secrets.DOCKER_PORTAINER_PASSWORD }}
           STACK_NAME: ${{ secrets.PORTAINER_STACK_NAME }}
-          ENDPOINT_ID: 1 # Default endpoint ID is usually 1, but might need adjustment
+          ENDPOINT_ID: 1
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
         run: |
           echo "Authenticating with Portainer..."
           JWT=$(curl -s -X POST "$PORTAINER_URL/api/auth" \
@@ -91,6 +97,23 @@ jobs:
           # Read content of docker-compose.prod.yml
           COMPOSE_FILE_CONTENT=$(cat docker-compose.prod.yml | jq -Rs .)
 
+          # Construct Env JSON array
+          ENV_JSON=$(jq -n \
+            --arg sup_url "$SUPABASE_URL" \
+            --arg sup_anon "$SUPABASE_ANON_KEY" \
+            --arg sup_service "$SUPABASE_SERVICE_ROLE_KEY" \
+            --arg front_url "$FRONTEND_URL" \
+            --arg redis_host "$REDIS_HOST" \
+            --arg redis_port "$REDIS_PORT" \
+            '[
+              {name: "SUPABASE_URL", value: $sup_url},
+              {name: "SUPABASE_ANON_KEY", value: $sup_anon},
+              {name: "SUPABASE_SERVICE_ROLE_KEY", value: $sup_service},
+              {name: "FRONTEND_URL", value: $front_url},
+              {name: "REDIS_HOST", value: $redis_host},
+              {name: "REDIS_PORT", value: $redis_port}
+            ]')
+
           if [ -z "$STACK_ID" ]; then
             echo "Stack '$STACK_NAME' not found. Creating new stack..."
             # Create Stack (Type 2 = Docker Compose / Standalone)
@@ -98,7 +121,7 @@ jobs:
             CREATE_RESPONSE=$(curl -s -X POST "$PORTAINER_URL/api/stacks?type=2&method=string&endpointId=$ENDPOINT_ID" \
               -H "Authorization: Bearer $JWT" \
               -H "Content-Type: application/json" \
-              -d "{\"Name\": \"$STACK_NAME\", \"StackFileContent\": $COMPOSE_FILE_CONTENT}")
+              -d "{\"Name\": \"$STACK_NAME\", \"StackFileContent\": $COMPOSE_FILE_CONTENT, \"Env\": $ENV_JSON}")
 
             echo "Create response: $CREATE_RESPONSE"
           else
@@ -109,7 +132,7 @@ jobs:
             UPDATE_RESPONSE=$(curl -s -X PUT "$PORTAINER_URL/api/stacks/$STACK_ID?endpointId=$ENDPOINT_ID" \
               -H "Authorization: Bearer $JWT" \
               -H "Content-Type: application/json" \
-              -d "{\"StackFileContent\": $COMPOSE_FILE_CONTENT, \"Prune\": false, \"PullImage\": true}")
+              -d "{\"StackFileContent\": $COMPOSE_FILE_CONTENT, \"Env\": $ENV_JSON, \"Prune\": false, \"PullImage\": true}")
 
             echo "Update response: $UPDATE_RESPONSE"
           fi

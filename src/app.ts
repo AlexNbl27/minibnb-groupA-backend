@@ -18,7 +18,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use("/api", routes);
-app.use("/api-docs", swaggerUi.serve as any, swaggerUi.setup(swaggerSpec) as any); // as any pour éviter les erreurs de type
+
+// Swagger documentation - Available on multiple paths
+const swaggerMiddleware = [swaggerUi.serve as any, swaggerUi.setup(swaggerSpec) as any];
+app.use("/docs", ...swaggerMiddleware);
+app.use("/v1/docs", ...swaggerMiddleware);
+app.use("/api/v1/docs", ...swaggerMiddleware);
 
 // Health check
 /**
@@ -50,7 +55,7 @@ app.get("/health", (req, res) => {
 app.get("/", (req, res) => {
     res.json({
         message: "Welcome to MiniBnB API",
-        docs: "/api-docs",
+        docs: ["/docs", "/v1/docs", "/api/v1/docs"],
         health: "/health",
     });
 });
