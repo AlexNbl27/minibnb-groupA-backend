@@ -25,3 +25,9 @@ export const updateProfileSchema = z.object({
         bio: z.string().max(500).optional(),
     }),
 });
+
+export const refreshTokenSchema = z.object({
+    body: z.object({
+        refresh_token: z.string(),
+    }),
+});

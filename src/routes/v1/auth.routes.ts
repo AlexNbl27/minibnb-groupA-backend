@@ -1,7 +1,11 @@
 import express from "express";
 import { AuthService } from "../../services/auth.service";
 import { validate } from "../../middlewares/validation.middleware";
-import { signupSchema, loginSchema } from "../../validators/user.validator";
+import {
+    signupSchema,
+    loginSchema,
+    refreshTokenSchema,
+} from "../../validators/user.validator";
 import { sendSuccess } from "../../utils/response";
 
 const router = express.Router();
@@ -107,6 +111,37 @@ router.post("/logout", async (req, res, next) => {
     try {
         await authService.signOut();
         sendSuccess(res, { message: "Logged out successfully" });
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     summary: Refresh user session
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refresh_token
+ *             properties:
+ *               refresh_token:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Session refreshed successfully
+ */
+router.post("/refresh", validate(refreshTokenSchema), async (req, res, next) => {
+    try {
+        const { refresh_token } = req.body;
+        const data = await authService.refreshToken(refresh_token);
+        sendSuccess(res, { user: data.user, session: data.session });
     } catch (error) {
         next(error);
     }
