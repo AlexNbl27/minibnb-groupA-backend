@@ -59,7 +59,7 @@ app.get("/", (req, res) => {
 app.use(errorHandler);
 
 // Démarrage
-const start = async () => {
+export const start = async () => {
     try {
         await connectRedis();
 
@@ -73,4 +73,8 @@ const start = async () => {
     }
 };
 
-start();
+if (require.main === module) {
+    start();
+}
+
+export default app;
