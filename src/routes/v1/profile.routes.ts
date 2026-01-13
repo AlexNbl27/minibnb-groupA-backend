@@ -6,7 +6,25 @@ import { updateProfileSchema } from "../../validators/user.validator";
 import { sendSuccess } from "../../utils/response";
 
 const router = express.Router();
+/**
+ * @swagger
+ * tags:
+ *   name: Profiles
+ *   description: User profile management
+ */
 
+/**
+ * @swagger
+ * /profiles/me:
+ *   get:
+ *     summary: Get current user profile
+ *     tags: [Profiles]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Profile details
+ */
 router.get("/me", authenticate, async (req, res, next) => {
     try {
         const { data, error } = await supabase
@@ -22,6 +40,31 @@ router.get("/me", authenticate, async (req, res, next) => {
     }
 });
 
+/**
+ * @swagger
+ * /profiles/me:
+ *   patch:
+ *     summary: Update current user profile
+ *     tags: [Profiles]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               first_name:
+ *                 type: string
+ *               last_name:
+ *                 type: string
+ *               avatar_url:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated
+ */
 router.patch(
     "/me",
     authenticate,

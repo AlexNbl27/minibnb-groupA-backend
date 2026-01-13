@@ -6,7 +6,32 @@ import { ForbiddenError } from "../../utils/errors";
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Cohosts
+ *   description: Co-host management
+ */
+
 // DELETE /api/v1/cohosts/:id (Retirer co-hôte)
+/**
+ * @swagger
+ * /cohosts/{id}:
+ *   delete:
+ *     summary: Remove a co-host
+ *     tags: [Cohosts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Co-host removed
+ */
 router.delete("/:id", authenticate, async (req, res, next) => {
     try {
         const coHostId = Number(req.params.id);

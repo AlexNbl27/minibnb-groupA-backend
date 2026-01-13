@@ -11,10 +11,43 @@ import {
 import { sendSuccess } from "../../utils/response";
 
 const router = express.Router();
+/**
+ * @swagger
+ * tags:
+ *   name: Listings
+ *   description: Property listings management
+ */
 const listingService = new ListingService();
 const cacheService = new CacheService();
 
 // GET /api/v1/listings (avec cache 5 min)
+/**
+ * @swagger
+ * /listings:
+ *   get:
+ *     summary: Get all listings
+ *     tags: [Listings]
+ *     parameters:
+ *       - in: query
+ *         name: city
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: min_price
+ *         schema:
+ *           type: number
+ *       - in: query
+ *         name: max_price
+ *         schema:
+ *           type: number
+ *       - in: query
+ *         name: guests
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of listings
+ */
 router.get("/", cacheMiddleware(300), async (req, res, next) => {
     try {
         const filters = {
@@ -37,6 +70,22 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
 });
 
 // GET /api/v1/listings/:id (avec cache 1h)
+/**
+ * @swagger
+ * /listings/{id}:
+ *   get:
+ *     summary: Get listing by ID
+ *     tags: [Listings]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Listing details
+ */
 router.get("/:id", cacheMiddleware(3600), async (req, res, next) => {
     try {
         const listing = await listingService.getById(Number(req.params.id));
@@ -47,6 +96,41 @@ router.get("/:id", cacheMiddleware(3600), async (req, res, next) => {
 });
 
 // POST /api/v1/listings (protégé)
+/**
+ * @swagger
+ * /listings:
+ *   post:
+ *     summary: Create a new listing
+ *     tags: [Listings]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - description
+ *               - price_per_night
+ *               - city
+ *               - country
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               price_per_night:
+ *                 type: number
+ *               city:
+ *                 type: string
+ *               country:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Listing created
+ */
 router.post(
     "/",
     authenticate,
@@ -69,6 +153,34 @@ router.post(
 );
 
 // PATCH /api/v1/listings/:id (protégé)
+/**
+ * @swagger
+ * /listings/{id}:
+ *   patch:
+ *     summary: Update a listing
+ *     tags: [Listings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               price_per_night:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Listing updated
+ */
 router.patch(
     "/:id",
     authenticate,
@@ -92,6 +204,24 @@ router.patch(
 );
 
 // DELETE /api/v1/listings/:id (protégé)
+/**
+ * @swagger
+ * /listings/{id}:
+ *   delete:
+ *     summary: Delete a listing
+ *     tags: [Listings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Listing deleted
+ */
 router.delete("/:id", authenticate, async (req, res, next) => {
     try {
         await listingService.delete(
@@ -112,6 +242,24 @@ router.delete("/:id", authenticate, async (req, res, next) => {
 import { BookingService } from "../../services/booking.service";
 const bookingService = new BookingService();
 
+/**
+ * @swagger
+ * /listings/{id}/bookings:
+ *   get:
+ *     summary: Get bookings for a listing (Host only)
+ *     tags: [Listings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of bookings
+ */
 router.get("/:id/bookings", authenticate, async (req, res, next) => {
     try {
         const bookings = await bookingService.getByListing(
@@ -127,6 +275,41 @@ router.get("/:id/bookings", authenticate, async (req, res, next) => {
 import { supabase } from "../../config/supabase";
 import { ForbiddenError } from "../../utils/errors";
 
+/**
+ * @swagger
+ * /listings/{id}/cohosts:
+ *   post:
+ *     summary: Add a co-host to a listing
+ *     tags: [Listings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - co_host_id
+ *             properties:
+ *               co_host_id:
+ *                 type: string
+ *               can_edit_listing:
+ *                 type: boolean
+ *               can_access_messages:
+ *                 type: boolean
+ *               can_respond_messages:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Co-host added
+ */
 router.post("/:id/cohosts", authenticate, async (req, res, next) => {
     try {
         const listingId = Number(req.params.id);
