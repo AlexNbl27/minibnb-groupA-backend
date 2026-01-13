@@ -11,6 +11,10 @@ const options: swaggerJsdoc.Options = {
         },
         servers: [
             {
+                url: `https://minibnb-backend.vincentmagnien.com/api`,
+                description: 'Production server',
+            },
+            {
                 url: `http://localhost:${env.PORT}/api/v1`,
                 description: 'Local server',
             },
@@ -35,7 +39,9 @@ const options: swaggerJsdoc.Options = {
             },
         },
     },
-    apis: ['./src/app.ts', './src/routes/**/*.ts'], // Path to the API docs
+    apis: env.NODE_ENV === 'production'
+        ? ['./dist/app.js', './dist/routes/**/*.js']
+        : ['./src/app.ts', './src/routes/**/*.ts'], // Path to the API docs
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
