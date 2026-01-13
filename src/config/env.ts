@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import { z } from "zod";
 
-dotenv.config();
+dotenv.config({ quiet: true } as any);
 
 const envSchema = z.object({
     NODE_ENV: z.enum(["development", "production", "test"]).default(

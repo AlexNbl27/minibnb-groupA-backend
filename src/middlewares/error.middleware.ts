@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { AppError } from "../utils/errors";
+import { env } from "../config/env";
 
 export const errorHandler = (
     error: Error,
@@ -24,7 +25,9 @@ export const errorHandler = (
         });
     }
 
-    console.error("Unhandled error:", error);
+    if (env.NODE_ENV !== "test") {
+        console.error("Unhandled error:", error);
+    }
 
     return res.status(500).json({
         success: false,

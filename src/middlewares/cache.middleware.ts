@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import redisClient from "../config/redis";
+import { env } from "../config/env";
 
 export const cacheMiddleware = (ttl: number) => {
     return async (req: Request, res: Response, next: NextFunction) => {
@@ -21,7 +22,9 @@ export const cacheMiddleware = (ttl: number) => {
 
             next();
         } catch (error) {
-            console.error("Cache error:", error);
+            if (env.NODE_ENV !== "test") {
+                console.error("Cache error:", error);
+            }
             next();
         }
     };
