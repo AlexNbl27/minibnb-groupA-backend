@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { ZodError } from "zod";
 import { AppError } from "../utils/errors";
 import { env } from "../config/env";
 
@@ -17,11 +18,16 @@ export const errorHandler = (
     }
 
     // Erreur Zod
-    if (error.name === "ZodError") {
+    if (error instanceof ZodError) {
+        const zodErrors = error.issues || [];
+        const errorMessage = zodErrors
+            .map((err) => `${err.path.join(".")}: ${err.message}`)
+            .join(", ");
+
         return res.status(400).json({
             success: false,
-            message: "Validation error",
-            errors: (error as any).errors,
+            message: errorMessage ? `Validation error: ${errorMessage}` : "Validation error",
+            errors: zodErrors,
         });
     }
 

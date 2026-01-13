@@ -50,7 +50,7 @@ describe('Listing Routes', () => {
     describe('GET /api/v1/listings', () => {
         it('should return all listings', async () => {
             const mockListings = [{ id: 1, name: 'Villa' }];
-            mockGetAll.mockResolvedValue(mockListings);
+            mockGetAll.mockResolvedValue({ data: mockListings, total: 1 });
 
             const response = await request(app).get('/api/v1/listings');
 
@@ -60,14 +60,17 @@ describe('Listing Routes', () => {
         });
 
         it('should pass filters', async () => {
-            mockGetAll.mockResolvedValue([]);
+            mockGetAll.mockResolvedValue({ data: [], total: 0 });
 
             await request(app).get('/api/v1/listings?city=Paris&min_price=100');
 
-            expect(mockGetAll).toHaveBeenCalledWith(expect.objectContaining({
-                city: 'Paris',
-                min_price: 100
-            }));
+            expect(mockGetAll).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    city: 'Paris',
+                    min_price: 100
+                }),
+                { page: 1, limit: 10 }
+            );
         });
     });
 

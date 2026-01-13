@@ -32,13 +32,13 @@ describe('Message Routes', () => {
     describe('GET /api/v1/messages/:conversationId', () => {
         it('should return messages for a conversation', async () => {
             const mockMessages = [{ id: 1, content: 'Hello' }];
-            mockGetByConversation.mockResolvedValue(mockMessages);
+            mockGetByConversation.mockResolvedValue({ data: mockMessages, total: 1 });
 
             const response = await request(app).get('/api/v1/conversations/10');
 
             expect(response.status).toBe(200);
             expect(response.body.data).toEqual(mockMessages);
-            expect(mockGetByConversation).toHaveBeenCalledWith(10, 'user-123');
+            expect(mockGetByConversation).toHaveBeenCalledWith(10, 'user-123', { page: 1, limit: 10 });
         });
 
         it('should handle errors (e.g., forbidden)', async () => {

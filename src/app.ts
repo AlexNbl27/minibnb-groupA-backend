@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import { env } from "./config/env";
 import { connectRedis } from "./config/redis";
 import routes from "./routes";
@@ -11,8 +12,39 @@ import { swaggerSpec } from "./config/swagger";
 const app = express();
 
 // Middlewares globaux
-app.use(helmet());
-app.use(cors({ origin: env.FRONTEND_URL }));
+// Configure Helmet with exceptions for Swagger UI
+app.use(helmet({
+    contentSecurityPolicy: env.NODE_ENV === "development" ? false : {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+        },
+    },
+}));
+
+// CORS configuration - Allow frontend and same-origin (for Swagger UI)
+const allowedOrigins = [
+    env.FRONTEND_URL,
+    ...(env.BACKEND_URL ? [env.BACKEND_URL] : []),
+    `http://localhost:${env.PORT}`,
+    ...(env.NODE_ENV === "development" ? ["http://localhost:3000"] : []),
+].filter(Boolean);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, Postman, or same-origin)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true
+}));
+
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
