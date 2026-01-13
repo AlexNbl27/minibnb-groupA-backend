@@ -42,13 +42,13 @@ describe('Booking Routes', () => {
     describe('GET /api/v1/bookings/me', () => {
         it('should return user bookings', async () => {
             const mockBookings = [{ id: '1', listing_id: 1 }];
-            mockGetByUser.mockResolvedValue(mockBookings);
+            mockGetByUser.mockResolvedValue({ data: mockBookings, total: 1 });
 
             const response = await request(app).get('/api/v1/bookings/me');
 
             expect(response.status).toBe(200);
             expect(response.body.data).toEqual(mockBookings);
-            expect(mockGetByUser).toHaveBeenCalledWith('user-123');
+            expect(mockGetByUser).toHaveBeenCalledWith('user-123', { page: 1, limit: 10 });
         });
 
         it('should handle errors', async () => {
