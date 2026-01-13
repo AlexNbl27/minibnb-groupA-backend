@@ -15,6 +15,7 @@ const envSchema = z.object({
     REDIS_PORT: z.string().default("6379"),
     REDIS_PASSWORD: z.string().optional(),
     FRONTEND_URL: z.string().url(),
+    BACKEND_URL: z.string().url().optional(),
 });
 
 export const env = envSchema.parse(process.env);
