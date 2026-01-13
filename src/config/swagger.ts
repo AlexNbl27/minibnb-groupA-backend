@@ -1,4 +1,5 @@
 import swaggerJsdoc from 'swagger-jsdoc';
+import path from 'path';
 import { env } from './env';
 
 const options: swaggerJsdoc.Options = {
@@ -39,9 +40,7 @@ const options: swaggerJsdoc.Options = {
             },
         },
     },
-    apis: env.NODE_ENV === 'production'
-        ? ['./dist/app.js', './dist/routes/**/*.js']
-        : ['./src/app.ts', './src/routes/**/*.ts'], // Path to the API docs
+    apis: [path.join(process.cwd(), 'dist/app.js'), path.join(process.cwd(), 'dist/routes/**/*.js')], // Path to the API docs
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
