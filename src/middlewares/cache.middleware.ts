@@ -10,6 +10,7 @@ export const cacheMiddleware = (ttl: number) => {
             const cachedData = await redisClient.get(key);
 
             if (cachedData) {
+                res.set("Cache-Control", `public, max-age=${ttl}`);
                 return res.json(JSON.parse(cachedData));
             }
 
@@ -17,6 +18,7 @@ export const cacheMiddleware = (ttl: number) => {
             const originalJson = res.json.bind(res);
             res.json = (body: any) => {
                 redisClient.setEx(key, ttl, JSON.stringify(body));
+                res.set("Cache-Control", `public, max-age=${ttl}`);
                 return originalJson(body);
             };
 
