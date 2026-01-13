@@ -5,6 +5,7 @@ import { AuthService } from '../../../src/services/auth.service';
 const mockSignUp = jest.fn();
 const mockSignIn = jest.fn();
 const mockSignOut = jest.fn();
+const mockRefreshSession = jest.fn();
 
 jest.mock('../../../src/services/auth.service', () => {
     return {
@@ -13,6 +14,7 @@ jest.mock('../../../src/services/auth.service', () => {
                 signUp: mockSignUp,
                 signIn: mockSignIn,
                 signOut: mockSignOut,
+                refreshSession: mockRefreshSession,
             };
         }),
     };
@@ -48,9 +50,9 @@ describe('Auth Routes', () => {
             expect(response.status).toBe(201);
             expect(response.body.success).toBe(true);
             expect(response.body.data).toEqual({
-                user: mockUser,
-                session: mockSession
+                user: mockUser
             });
+            expect(response.headers['set-cookie']).toBeDefined();
             expect(mockSignUp).toHaveBeenCalledWith(
                 'test@example.com',
                 'password123',
@@ -91,9 +93,9 @@ describe('Auth Routes', () => {
             expect(response.status).toBe(200);
             expect(response.body.success).toBe(true);
             expect(response.body.data).toEqual({
-                user: mockUser,
-                session: mockSession
+                user: mockUser
             });
+            expect(response.headers['set-cookie']).toBeDefined();
             expect(mockSignIn).toHaveBeenCalledWith('test@example.com', 'password123');
         });
 

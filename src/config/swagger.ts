@@ -12,12 +12,12 @@ const options: swaggerJsdoc.Options = {
         },
         servers: [
             {
-                url: `https://minibnb-backend.vincentmagnien.com/api/v1`,
-                description: 'Production server',
-            },
-            {
                 url: `http://localhost:${env.PORT}/api/v1`,
                 description: 'Local server',
+            },
+            {
+                url: `https://minibnb-backend.vincentmagnien.com/api/v1`,
+                description: 'Production server',
             },
         ],
         components: {
