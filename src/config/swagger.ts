@@ -40,7 +40,10 @@ const options: swaggerJsdoc.Options = {
             },
         },
     },
-    apis: [path.join(process.cwd(), 'dist/app.js'), path.join(process.cwd(), 'dist/routes/**/*.js')], // Path to the API docs
+    apis: [
+        path.join(__dirname, '../app.js'),
+        path.join(__dirname, '../routes/**/*.js'),
+    ], // Path to the API docs - Using __dirname for reliable path resolution
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
