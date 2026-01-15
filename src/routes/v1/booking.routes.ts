@@ -53,15 +53,11 @@ router.get("/me", authenticate, async (req, res, next) => {
             pagination
         );
 
-        res.json({
-            success: true,
-            data: result.data,
-            meta: {
-                total: result.total,
-                page: pagination.page,
-                limit: pagination.limit,
-                totalPages: Math.ceil(result.total / pagination.limit)
-            }
+        sendSuccess(res, result.data, 200, {
+            total: result.total,
+            page: pagination.page,
+            limit: pagination.limit,
+            totalPages: Math.ceil(result.total / pagination.limit)
         });
     } catch (error) {
         next(error);

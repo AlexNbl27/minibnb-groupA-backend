@@ -4,6 +4,7 @@ import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validation.middleware";
 import { updateProfileSchema } from "../../validators/user.validator";
 import { sendSuccess } from "../../utils/response";
+import { NotFoundError } from "../../utils/errors";
 
 const router = express.Router();
 /**
@@ -34,6 +35,8 @@ router.get("/me", authenticate, async (req, res, next) => {
             .single();
 
         if (error) throw error;
+        if (!data) throw new NotFoundError("Profile not found");
+
         sendSuccess(res, data);
     } catch (error) {
         next(error);

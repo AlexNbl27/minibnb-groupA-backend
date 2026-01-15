@@ -78,15 +78,11 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
 
         const result = await listingService.getAll(filters, pagination);
 
-        res.json({
-            success: true,
-            data: result.data,
-            meta: {
-                total: result.total,
-                page: pagination.page,
-                limit: pagination.limit,
-                totalPages: Math.ceil(result.total / pagination.limit)
-            }
+        sendSuccess(res, result.data, 200, {
+            total: result.total,
+            page: pagination.page,
+            limit: pagination.limit,
+            totalPages: Math.ceil(result.total / pagination.limit)
         });
     } catch (error) {
         next(error);
@@ -113,7 +109,7 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
 router.get("/:id", cacheMiddleware(3600), async (req, res, next) => {
     try {
         const listing = await listingService.getById(Number(req.params.id));
-        res.json({ success: true, data: listing });
+        sendSuccess(res, listing);
     } catch (error) {
         next(error);
     }
@@ -169,7 +165,7 @@ router.post(
             // Invalider cache
             await cacheService.invalidatePattern("cache:/api/v1/listings?*");
 
-            res.status(201).json({ success: true, data: listing });
+            sendSuccess(res, listing, 201);
         } catch (error) {
             next(error);
         }
@@ -220,7 +216,7 @@ router.patch(
             // Invalider cache
             await cacheService.invalidateListingCache(Number(req.params.id));
 
-            res.json({ success: true, data: listing });
+            sendSuccess(res, listing);
         } catch (error) {
             next(error);
         }
@@ -256,7 +252,7 @@ router.delete("/:id", authenticate, async (req, res, next) => {
         // Invalider cache
         await cacheService.invalidateListingCache(Number(req.params.id));
 
-        res.json({ success: true, message: "Listing deleted" });
+        sendSuccess(res, { message: "Listing deleted" });
     } catch (error) {
         next(error);
     }
@@ -307,15 +303,11 @@ router.get("/:id/bookings", authenticate, async (req, res, next) => {
             pagination
         );
 
-        res.json({
-            success: true,
-            data: result.data,
-            meta: {
-                total: result.total,
-                page: pagination.page,
-                limit: pagination.limit,
-                totalPages: Math.ceil(result.total / pagination.limit)
-            }
+        sendSuccess(res, result.data, 200, {
+            total: result.total,
+            page: pagination.page,
+            limit: pagination.limit,
+            totalPages: Math.ceil(result.total / pagination.limit)
         });
     } catch (error) {
         next(error);
