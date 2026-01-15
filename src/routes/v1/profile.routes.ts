@@ -61,6 +61,8 @@ router.get("/me", authenticate, async (req, res, next) => {
  *                 type: string
  *               avatar_url:
  *                 type: string
+ *               bio:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Profile updated
@@ -78,8 +80,10 @@ router.patch(
 
             const { data, error } = await supabase
                 .from("profiles")
-                .update(req.body)
-                .eq("id", (req as AuthRequest).user!.id)
+                .upsert({
+                    id: (req as AuthRequest).user!.id,
+                    ...req.body
+                })
                 .select()
                 .single();
 

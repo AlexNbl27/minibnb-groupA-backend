@@ -31,17 +31,18 @@ describe('Profile Routes', () => {
         // Setup chainable mock
         mockFrom.mockReturnValue({
             update: mockUpdate,
+            upsert: mockUpdate, // Add upsert mock
             select: mockSelect,
             eq: mockEq,
         });
-        mockUpdate.mockReturnValue({
-            eq: mockEq,
+        mockUpdate.mockReturnValue({ // Upsert chaining
+            select: mockSelect
         });
         mockEq.mockReturnValue({
             select: mockSelect,
             single: mockSingle,
         });
-        mockSelect.mockReturnValue({ // Handle select("*") case
+        mockSelect.mockReturnValue({
             eq: mockEq,
             single: mockSingle
         });
@@ -60,6 +61,7 @@ describe('Profile Routes', () => {
 
             // Verify supabase was called with null
             expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+                id: 'user-123',
                 avatar_url: null
             }));
         });
