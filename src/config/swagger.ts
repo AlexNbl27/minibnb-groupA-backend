@@ -41,8 +41,8 @@ const options: swaggerJsdoc.Options = {
         },
     },
     apis: [
-        path.join(__dirname, '../app.js'),
-        path.join(__dirname, '../routes/**/*.js'),
+        path.join(__dirname, '../app.{js,ts}'),
+        path.join(__dirname, '../routes/**/*.{js,ts}'),
     ], // Path to the API docs - Using __dirname for reliable path resolution
 };
 

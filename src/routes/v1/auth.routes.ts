@@ -284,7 +284,6 @@ router.post(
 
       sendSuccess(res, { message: "Password updated successfully" });
     } catch (error: any) {
-      // Check for specific Supabase error message for invalid login
       if (error.message === "Invalid login credentials") {
         next(new UnauthorizedError("Invalid old password"));
         return;
