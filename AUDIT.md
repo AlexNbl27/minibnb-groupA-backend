@@ -385,6 +385,1555 @@ Créer un `ARCHITECTURE.md` avec :
 
 ---
 
+## 🔧 Guide de Résolution Détaillé
+
+Cette section fournit toutes les informations nécessaires pour résoudre les problèmes identifiés dans l'audit. Chaque solution inclut le contexte technique, le code complet, et les étapes de validation.
+
+---
+
+### 🔴 PRIORITÉ 1 : Implémenter le Cache Navigateur (HTTP Cache Headers)
+
+#### 📋 Contexte Technique
+
+**Problème actuel** :
+- Le backend utilise Redis pour le cache serveur (✅ implémenté)
+- Mais les headers HTTP de cache (`Cache-Control`, `ETag`, `Last-Modified`) sont absents
+- Résultat : Le navigateur ne met rien en cache et redemande toujours au serveur
+
+**Impact** :
+- Latence utilisateur inutile
+- Charge serveur augmentée
+- Bande passante gaspillée
+
+**Solution à implémenter** :
+1. Créer un middleware qui ajoute les headers HTTP de cache
+2. Appliquer ce middleware sur les routes GET de lecture
+3. Implémenter la validation conditionnelle avec ETags
+
+---
+
+#### 📝 Étape 1 : Créer le Middleware HTTP Cache
+
+**Fichier à créer** : `src/middlewares/http-cache.middleware.ts`
+
+```typescript
+import { Request, Response, NextFunction } from "express";
+import crypto from "crypto";
+
+export interface HttpCacheOptions {
+    /**
+     * Durée de cache en secondes
+     * @example 300 (5 minutes), 3600 (1 heure)
+     */
+    maxAge: number;
+
+    /**
+     * Type de cache
+     * - 'public' : Cache partagé (CDN, proxy) + navigateur
+     * - 'private' : Cache navigateur uniquement
+     */
+    cacheType?: "public" | "private";
+
+    /**
+     * Activer les ETags pour la validation conditionnelle
+     * Si activé, retourne 304 Not Modified si le contenu n'a pas changé
+     */
+    enableETag?: boolean;
+}
+
+/**
+ * Middleware pour ajouter les headers de cache HTTP
+ *
+ * @example
+ * // Cache public de 5 minutes avec ETags
+ * router.get("/listings", httpCache({ maxAge: 300, cacheType: "public", enableETag: true }), handler)
+ *
+ * // Cache privé d'1 heure sans ETags
+ * router.get("/me", httpCache({ maxAge: 3600, cacheType: "private" }), handler)
+ */
+export const httpCache = (options: HttpCacheOptions) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+        const { maxAge, cacheType = "public", enableETag = true } = options;
+
+        // Construire le header Cache-Control
+        const cacheControl = `${cacheType}, max-age=${maxAge}`;
+
+        // Ajouter les headers de cache
+        res.set("Cache-Control", cacheControl);
+
+        // Si ETags activés, intercepter la réponse
+        if (enableETag) {
+            const originalJson = res.json.bind(res);
+
+            res.json = function (body: any) {
+                // Générer un ETag basé sur le contenu
+                const content = JSON.stringify(body);
+                const etag = `"${crypto.createHash("md5").update(content).digest("hex")}"`;
+
+                // Ajouter le header ETag
+                res.set("ETag", etag);
+
+                // Vérifier si le client a déjà la même version (If-None-Match)
+                const clientETag = req.headers["if-none-match"];
+
+                if (clientETag === etag) {
+                    // Le contenu n'a pas changé, retourner 304 Not Modified
+                    return res.status(304).end();
+                }
+
+                // Le contenu a changé, retourner normalement
+                return originalJson(body);
+            };
+        }
+
+        next();
+    };
+};
+
+/**
+ * Middleware pour désactiver le cache (pour les routes sensibles)
+ *
+ * @example
+ * router.post("/auth/login", noCache, handler)
+ */
+export const noCache = (req: Request, res: Response, next: NextFunction) => {
+    res.set({
+        "Cache-Control": "no-store, no-cache, must-revalidate, private",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    });
+    next();
+};
+```
+
+---
+
+#### 📝 Étape 2 : Modifier les Routes pour Utiliser le Middleware
+
+**Fichier à modifier** : `src/routes/v1/listing.routes.ts`
+
+**AVANT (ligne 61)** :
+```typescript
+router.get("/", cacheMiddleware(300), async (req, res, next) => {
+```
+
+**APRÈS** :
+```typescript
+import { httpCache, noCache } from "../../middlewares/http-cache.middleware";
+
+router.get("/", cacheMiddleware(300), httpCache({ maxAge: 300, cacheType: "public", enableETag: true }), async (req, res, next) => {
+```
+
+**Explication** :
+- `cacheMiddleware(300)` : Cache serveur Redis (5 min)
+- `httpCache({ maxAge: 300 })` : Cache navigateur (5 min)
+- `enableETag: true` : Validation conditionnelle (304 Not Modified)
+
+**AVANT (ligne 113)** :
+```typescript
+router.get("/:id", cacheMiddleware(3600), async (req, res, next) => {
+```
+
+**APRÈS** :
+```typescript
+router.get("/:id", cacheMiddleware(3600), httpCache({ maxAge: 3600, cacheType: "public", enableETag: true }), async (req, res, next) => {
+```
+
+---
+
+#### 📝 Étape 3 : Appliquer sur les Autres Routes GET
+
+**Fichiers à modifier** :
+1. `src/routes/v1/booking.routes.ts:44` - GET /bookings/me (cache privé)
+2. `src/routes/v1/profile.routes.ts` - GET /profiles/:id (cache public)
+3. `src/routes/v1/message.routes.ts` - GET /conversations/* (cache privé)
+
+**Exemple pour les bookings** :
+```typescript
+// Cache privé car données personnelles
+router.get("/me", authenticate, httpCache({ maxAge: 60, cacheType: "private", enableETag: true }), async (req, res, next) => {
+```
+
+**Exemple pour routes sensibles** (auth) :
+```typescript
+// Pas de cache pour les routes d'authentification
+router.post("/login", noCache, validate(loginSchema), async (req, res, next) => {
+router.post("/refresh", noCache, async (req, res, next) => {
+```
+
+---
+
+#### ✅ Validation de la Solution
+
+**Test 1 : Vérifier les headers HTTP**
+```bash
+# Tester une route avec cache
+curl -I http://localhost:5000/api/v1/listings
+
+# Devrait retourner :
+# Cache-Control: public, max-age=300
+# ETag: "abc123def456..."
+```
+
+**Test 2 : Tester la validation conditionnelle (304)**
+```bash
+# 1. Récupérer l'ETag
+ETAG=$(curl -s -I http://localhost:5000/api/v1/listings | grep -i etag | cut -d' ' -f2)
+
+# 2. Renvoyer avec If-None-Match
+curl -I -H "If-None-Match: $ETAG" http://localhost:5000/api/v1/listings
+
+# Devrait retourner :
+# HTTP/1.1 304 Not Modified
+```
+
+**Test 3 : Vérifier dans le navigateur**
+1. Ouvrir DevTools → Network
+2. Charger `/api/v1/listings`
+3. Recharger la page (F5)
+4. Devrait voir "304 Not Modified" ou "(disk cache)"
+
+**Test 4 : Mesurer l'impact**
+```bash
+# Avant : Toujours 200 avec le body complet
+# Après : 304 sans body (économie de bande passante)
+
+# Mesurer le temps de réponse
+time curl http://localhost:5000/api/v1/listings # ~100ms
+time curl -H "If-None-Match: $ETAG" http://localhost:5000/api/v1/listings # ~10ms
+```
+
+---
+
+### 🔴 PRIORITÉ 2 : Créer la Documentation d'Architecture
+
+#### 📋 Contexte Technique
+
+**Problème actuel** :
+- Pas de README.md pour guider les nouveaux développeurs
+- Pas de schéma d'architecture pour comprendre le système
+- Pas de documentation de la base de données
+
+**Solution à implémenter** :
+1. Créer un `README.md` complet avec quickstart
+2. Créer un `ARCHITECTURE.md` avec diagrammes
+3. Documenter le schéma de base de données
+
+---
+
+#### 📝 Étape 1 : Créer le README.md
+
+**Fichier à créer** : `README.md`
+
+```markdown
+# 🏠 MiniBnB Backend API
+
+Backend REST API pour l'application MiniBnB (plateforme de location de logements type Airbnb).
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-green)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-5.2-lightgrey)](https://expressjs.com/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+## 📋 Table des Matières
+
+- [Caractéristiques](#-caractéristiques)
+- [Technologies](#-technologies)
+- [Prérequis](#-prérequis)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Démarrage](#-démarrage)
+- [Tests](#-tests)
+- [Documentation API](#-documentation-api)
+- [Architecture](#-architecture)
+- [Déploiement](#-déploiement)
+- [Contribution](#-contribution)
+
+---
+
+## ✨ Caractéristiques
+
+### API REST v1
+- ✅ **RESTful** : Ressources bien définies, méthodes HTTP cohérentes
+- ✅ **Versionnée** : Architecture prête pour v2, v3, etc.
+- ✅ **Documentée** : Swagger/OpenAPI 3.0 complet
+
+### Sécurité
+- 🔐 **JWT Authentication** : Access tokens + refresh tokens
+- 🛡️ **Contrôle d'accès** : Permissions granulaires (hôtes, co-hôtes, invités)
+- 🔒 **Helmet** : Protection contre les vulnérabilités courantes
+- 🌐 **CORS** : Configuration sécurisée avec whitelist
+
+### Performance
+- ⚡ **Cache serveur** : Redis pour les données fréquentes
+- 📦 **Cache navigateur** : Headers HTTP (Cache-Control, ETags)
+- 🎯 **Invalidation intelligente** : Cache invalidé automatiquement
+
+### Qualité
+- ✅ **Validation stricte** : Zod sur toutes les entrées
+- 🧪 **Tests automatisés** : Jest + Supertest
+- 🐛 **Gestion d'erreurs** : Messages clairs et codes HTTP appropriés
+- 📝 **TypeScript** : Typage statique complet
+
+---
+
+## 🛠️ Technologies
+
+| Technologie | Version | Usage |
+|-------------|---------|-------|
+| **Node.js** | ≥20.0.0 | Runtime JavaScript |
+| **TypeScript** | 5.9.3 | Typage statique |
+| **Express.js** | 5.2.1 | Framework web |
+| **Supabase** | 2.90.1 | Base de données PostgreSQL + Auth JWT |
+| **Redis** | 5.10.0 | Cache serveur |
+| **Zod** | 4.3.5 | Validation de schémas |
+| **Jest** | 30.2.0 | Tests unitaires et d'intégration |
+| **Swagger** | 6.2.8 | Documentation API OpenAPI 3.0 |
+
+---
+
+## 📦 Prérequis
+
+- **Node.js** ≥ 20.0.0
+- **pnpm** ≥ 8.0.0
+- **Redis** (local ou distant)
+- **Compte Supabase** (gratuit)
+
+---
+
+## 🚀 Installation
+
+### 1. Cloner le projet
+
+```bash
+git clone https://github.com/AlexNbl27/minibnb-groupA-backend.git
+cd minibnb-groupA-backend
+```
+
+### 2. Installer les dépendances
+
+```bash
+pnpm install
+```
+
+### 3. Configuration (voir section suivante)
+
+---
+
+## ⚙️ Configuration
+
+### 1. Créer le fichier `.env`
+
+```bash
+cp .env.example .env
+```
+
+### 2. Remplir les variables d'environnement
+
+```env
+# Environnement
+NODE_ENV=development
+PORT=5000
+
+# Supabase (https://supabase.com/dashboard/project/YOUR_PROJECT/settings/api)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# CORS
+FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:5000
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=    # Optionnel
+```
+
+### 3. Démarrer Redis (si local)
+
+```bash
+# macOS (Homebrew)
+brew services start redis
+
+# Linux (systemd)
+sudo systemctl start redis
+
+# Docker
+docker run -d -p 6379:6379 redis:alpine
+```
+
+---
+
+## 🎯 Démarrage
+
+### Mode Développement (avec hot reload)
+
+```bash
+pnpm dev
+```
+
+Le serveur démarre sur `http://localhost:5000`
+
+### Mode Production
+
+```bash
+# Build
+pnpm build
+
+# Start
+pnpm start
+```
+
+---
+
+## 🧪 Tests
+
+```bash
+# Lancer tous les tests
+pnpm test
+
+# Mode watch (développement)
+pnpm test:watch
+
+# Avec couverture
+pnpm test:coverage
+```
+
+---
+
+## 📚 Documentation API
+
+La documentation Swagger est accessible sur :
+
+- **Local** : http://localhost:5000/docs
+- **Production** : https://minibnb-backend.vincentmagnien.com/docs
+
+### Endpoints Principaux
+
+| Endpoint | Méthode | Description | Auth |
+|----------|---------|-------------|------|
+| `/api/v1/auth/signup` | POST | Créer un compte | ❌ |
+| `/api/v1/auth/login` | POST | Se connecter | ❌ |
+| `/api/v1/auth/refresh` | POST | Rafraîchir le token | ❌ |
+| `/api/v1/listings` | GET | Lister les annonces | ❌ |
+| `/api/v1/listings/:id` | GET | Détails d'une annonce | ❌ |
+| `/api/v1/listings` | POST | Créer une annonce | ✅ |
+| `/api/v1/bookings/me` | GET | Mes réservations | ✅ |
+| `/api/v1/bookings` | POST | Créer une réservation | ✅ |
+
+---
+
+## 🏗️ Architecture
+
+Voir le fichier [ARCHITECTURE.md](ARCHITECTURE.md) pour :
+- Diagramme de l'architecture système
+- Schéma de la base de données
+- Flow d'authentification JWT
+- Stratégie de cache
+
+**Structure du code** :
+```
+src/
+├── app.ts                    # Point d'entrée Express
+├── config/                   # Configuration (Supabase, Redis, etc.)
+├── middlewares/              # Middlewares (auth, cache, validation)
+├── routes/v1/                # Routes API v1
+├── services/                 # Logique métier
+├── validators/               # Schémas de validation Zod
+├── types/                    # Types TypeScript
+└── utils/                    # Utilitaires (erreurs, réponses)
+```
+
+---
+
+## 🚢 Déploiement
+
+Voir le fichier [DEPLOYMENT.md](DEPLOYMENT.md) pour le guide complet.
+
+### Déploiement Automatique (CI/CD)
+
+Le projet utilise GitHub Actions pour déployer automatiquement sur Portainer :
+
+1. **Push sur `main`** → Tests → Build Docker → Déploiement
+2. Image Docker publiée sur GitHub Container Registry
+3. Stack Portainer mis à jour automatiquement
+
+### Variables d'Environnement en Production
+
+Configurer dans **GitHub Secrets** :
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `FRONTEND_URL`
+- `REDIS_HOST`
+- etc.
+
+---
+
+## 🤝 Contribution
+
+### Workflow Git
+
+1. Créer une branche : `git checkout -b feature/ma-fonctionnalite`
+2. Faire vos modifications
+3. Tester : `pnpm test`
+4. Commiter : `git commit -m "feat: ajouter ma fonctionnalité"`
+5. Push : `git push origin feature/ma-fonctionnalite`
+6. Créer une Pull Request
+
+### Standards de Code
+
+- **TypeScript** : Typage strict activé
+- **ESLint** : (À configurer)
+- **Tests** : Couverture > 80%
+- **Commits** : Format [Conventional Commits](https://www.conventionalcommits.org/)
+
+---
+
+## 📄 License
+
+MIT License - voir le fichier [LICENSE](LICENSE)
+
+---
+
+## 👥 Équipe
+
+- **Alex** - GitHub: [@AlexNbl27](https://github.com/AlexNbl27)
+- **Vincent** - Déploiement
+
+---
+
+## 🐛 Bugs & Support
+
+Créer une issue sur GitHub : [Issues](https://github.com/AlexNbl27/minibnb-groupA-backend/issues)
+
+---
+
+## 📞 Contact
+
+Pour toute question : [Créer une issue](https://github.com/AlexNbl27/minibnb-groupA-backend/issues/new)
+```
+
+---
+
+#### 📝 Étape 2 : Créer ARCHITECTURE.md
+
+**Fichier à créer** : `ARCHITECTURE.md`
+
+```markdown
+# 🏗️ Architecture du Backend MiniBnB
+
+Ce document décrit l'architecture technique du backend MiniBnB.
+
+---
+
+## 📐 Vue d'Ensemble
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         FRONTEND                                 │
+│                    (React/Next.js)                              │
+│                  http://localhost:3000                          │
+└────────────────────────┬───────────────────────────────────────┘
+                         │ HTTPS (CORS enabled)
+                         │
+┌────────────────────────▼───────────────────────────────────────┐
+│                      BACKEND API                                │
+│                    (Express + TypeScript)                       │
+│                  http://localhost:5000                          │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │                    Middlewares                           │  │
+│  │  • Helmet (Security)                                     │  │
+│  │  • CORS (Cross-Origin)                                   │  │
+│  │  • Cookie Parser (JWT cookies)                           │  │
+│  │  • Validation (Zod)                                      │  │
+│  │  • Authentication (JWT verify)                           │  │
+│  │  • Cache (HTTP headers + Redis)                          │  │
+│  │  • Error Handler                                         │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │                   Routes (v1)                            │  │
+│  │  • /api/v1/auth                                          │  │
+│  │  • /api/v1/listings                                      │  │
+│  │  • /api/v1/bookings                                      │  │
+│  │  • /api/v1/profiles                                      │  │
+│  │  • /api/v1/conversations                                 │  │
+│  │  • /api/v1/cohosts                                       │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │                    Services                              │  │
+│  │  • AuthService (signup, login, refresh)                  │  │
+│  │  • ListingService (CRUD + permissions)                   │  │
+│  │  • BookingService (create, validate dates)               │  │
+│  │  • CacheService (invalidation)                           │  │
+│  └─────────────────────────────────────────────────────────┘  │
+└──────────┬──────────────────────────────┬────────────────────┘
+           │                              │
+           │                              │
+┌──────────▼──────────────┐    ┌─────────▼──────────────┐
+│      SUPABASE           │    │       REDIS            │
+│   (PostgreSQL + Auth)   │    │    (Cache serveur)     │
+│                         │    │                        │
+│  • Tables (listings,    │    │  • TTL: 60s-3600s      │
+│    bookings, profiles)  │    │  • Invalidation auto   │
+│  • Auth JWT             │    │  • Pattern matching    │
+│  • RLS (Row Level       │    │                        │
+│    Security)            │    │                        │
+└─────────────────────────┘    └────────────────────────┘
+```
+
+---
+
+## 🗄️ Schéma de la Base de Données (Supabase/PostgreSQL)
+
+### Table: `profiles`
+```sql
+CREATE TABLE profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20),
+    avatar_url TEXT,
+    bio TEXT,
+    is_host BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Relations** :
+- `id` → `auth.users(id)` : Lié au système d'authentification Supabase
+
+---
+
+### Table: `listings`
+```sql
+CREATE TABLE listings (
+    id SERIAL PRIMARY KEY,
+    host_id UUID NOT NULL REFERENCES profiles(id),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    picture_url TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    address VARCHAR(500) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    postal_code VARCHAR(20),
+    neighbourhood_group_cleansed VARCHAR(100),
+    bedrooms INTEGER DEFAULT 1,
+    beds INTEGER DEFAULT 1,
+    bathrooms DECIMAL(3,1) DEFAULT 1.0,
+    max_guests INTEGER DEFAULT 2,
+    property_type VARCHAR(100) DEFAULT 'Rental unit',
+    rules TEXT,
+    amenities TEXT[],
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_listings_host_id ON listings(host_id);
+CREATE INDEX idx_listings_city ON listings(city);
+CREATE INDEX idx_listings_is_active ON listings(is_active);
+```
+
+**Relations** :
+- `host_id` → `profiles(id)` : L'hôte qui possède l'annonce
+
+---
+
+### Table: `bookings`
+```sql
+CREATE TABLE bookings (
+    id SERIAL PRIMARY KEY,
+    listing_id INTEGER NOT NULL REFERENCES listings(id),
+    guest_id UUID NOT NULL REFERENCES profiles(id),
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    total_price DECIMAL(10,2) NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+
+    CONSTRAINT valid_dates CHECK (end_date > start_date)
+);
+
+CREATE INDEX idx_bookings_listing_id ON bookings(listing_id);
+CREATE INDEX idx_bookings_guest_id ON bookings(guest_id);
+CREATE INDEX idx_bookings_dates ON bookings(start_date, end_date);
+```
+
+**Relations** :
+- `listing_id` → `listings(id)` : L'annonce réservée
+- `guest_id` → `profiles(id)` : L'invité qui réserve
+
+---
+
+### Table: `co_hosts`
+```sql
+CREATE TABLE co_hosts (
+    id SERIAL PRIMARY KEY,
+    listing_id INTEGER NOT NULL REFERENCES listings(id),
+    host_id UUID NOT NULL REFERENCES profiles(id),
+    co_host_id UUID NOT NULL REFERENCES profiles(id),
+    can_edit_listing BOOLEAN DEFAULT FALSE,
+    can_access_messages BOOLEAN DEFAULT FALSE,
+    can_respond_messages BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+
+    UNIQUE(listing_id, co_host_id)
+);
+
+CREATE INDEX idx_co_hosts_listing_id ON co_hosts(listing_id);
+CREATE INDEX idx_co_hosts_co_host_id ON co_hosts(co_host_id);
+```
+
+**Relations** :
+- `listing_id` → `listings(id)` : L'annonce gérée
+- `host_id` → `profiles(id)` : L'hôte principal
+- `co_host_id` → `profiles(id)` : Le co-hôte ajouté
+
+---
+
+### Table: `conversations`
+```sql
+CREATE TABLE conversations (
+    id SERIAL PRIMARY KEY,
+    listing_id INTEGER NOT NULL REFERENCES listings(id),
+    guest_id UUID NOT NULL REFERENCES profiles(id),
+    host_id UUID NOT NULL REFERENCES profiles(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+
+    UNIQUE(listing_id, guest_id)
+);
+```
+
+---
+
+### Table: `messages`
+```sql
+CREATE TABLE messages (
+    id SERIAL PRIMARY KEY,
+    conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+    sender_id UUID NOT NULL REFERENCES profiles(id),
+    content TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
+CREATE INDEX idx_messages_sender_id ON messages(sender_id);
+```
+
+---
+
+## 🔐 Flow d'Authentification JWT
+
+```
+┌─────────────┐                                    ┌─────────────┐
+│   CLIENT    │                                    │   BACKEND   │
+└──────┬──────┘                                    └──────┬──────┘
+       │                                                  │
+       │  1. POST /api/v1/auth/signup                    │
+       │     { email, password, first_name, last_name }  │
+       ├─────────────────────────────────────────────────>│
+       │                                                  │
+       │                                    2. Supabase.auth.signUp()
+       │                                          ┌───────┴───────┐
+       │                                          │   SUPABASE    │
+       │                                          │ JWT generated │
+       │                                          └───────┬───────┘
+       │                                                  │
+       │  3. Set-Cookie: access_token (1h)               │
+       │     Set-Cookie: refresh_token (7d)              │
+       │<─────────────────────────────────────────────────┤
+       │     { success: true, data: { user } }           │
+       │                                                  │
+       │                                                  │
+       │  4. GET /api/v1/listings (protected)            │
+       │     Cookie: access_token=xxx                    │
+       ├─────────────────────────────────────────────────>│
+       │                                                  │
+       │                                    5. Middleware authenticate()
+       │                                       - Extract token from cookie
+       │                                       - Supabase.auth.getUser(token)
+       │                                       - Inject req.user
+       │                                                  │
+       │  6. { success: true, data: [...] }              │
+       │<─────────────────────────────────────────────────┤
+       │                                                  │
+       │                                                  │
+       │  7. Access token expiré après 1h                │
+       │     POST /api/v1/auth/refresh                   │
+       │     Cookie: refresh_token=yyy                   │
+       ├─────────────────────────────────────────────────>│
+       │                                                  │
+       │                                    8. Supabase.auth.refreshSession()
+       │                                          ┌───────┴───────┐
+       │                                          │   SUPABASE    │
+       │                                          │ New JWT token │
+       │                                          └───────┬───────┘
+       │                                                  │
+       │  9. Set-Cookie: access_token (new)              │
+       │     Set-Cookie: refresh_token (new)             │
+       │<─────────────────────────────────────────────────┤
+       │     { success: true, data: { user } }           │
+       │                                                  │
+```
+
+### Sécurité des Cookies JWT
+
+```typescript
+{
+  httpOnly: true,        // Inaccessible au JavaScript (protection XSS)
+  secure: true,          // HTTPS uniquement en production
+  sameSite: 'lax',       // Protection CSRF
+  maxAge: 3600000        // 1 heure (access token)
+}
+```
+
+---
+
+## ⚡ Stratégie de Cache
+
+### Cache Multi-Niveaux
+
+```
+CLIENT REQUEST
+      │
+      ▼
+┌─────────────────┐
+│ 1. BROWSER      │  Cache-Control: public, max-age=300
+│    CACHE        │  ETag: "abc123"
+│    (5 min)      │  → 304 Not Modified (si ETag match)
+└────────┬────────┘
+         │ Cache MISS
+         ▼
+┌─────────────────┐
+│ 2. REDIS        │  Key: cache:/api/v1/listings?city=Paris
+│    CACHE        │  TTL: 300s (5 min)
+│    (Server)     │  → Hit: Return cached JSON
+└────────┬────────┘
+         │ Cache MISS
+         ▼
+┌─────────────────┐
+│ 3. SUPABASE     │  SELECT * FROM listings WHERE city = 'Paris'
+│    DATABASE     │  → Query database
+│    (PostgreSQL) │  → Cache result in Redis
+└─────────────────┘  → Add HTTP cache headers
+                     → Return to client
+```
+
+### Configuration du Cache par Ressource
+
+| Ressource | Cache Navigateur | Cache Redis | Type | Raison |
+|-----------|------------------|-------------|------|--------|
+| `GET /listings` | 5 min (300s) | 5 min | Public | Liste peu modifiée |
+| `GET /listings/:id` | 1h (3600s) | 1h | Public | Détails rarement modifiés |
+| `GET /bookings/me` | 1 min (60s) | Non | Private | Données personnelles |
+| `GET /profiles/:id` | 15 min (900s) | 15 min | Public | Profils stables |
+| `POST /bookings` | Non | Non | - | Mutation |
+
+### Invalidation du Cache
+
+**Scénarios d'invalidation** :
+1. **Création d'annonce** (`POST /listings`)
+   - Invalide `cache:/api/v1/listings?*` (toutes les listes)
+
+2. **Modification d'annonce** (`PATCH /listings/:id`)
+   - Invalide `cache:/api/v1/listings/:id`
+   - Invalide `cache:/api/v1/listings?*`
+
+3. **Suppression d'annonce** (`DELETE /listings/:id`)
+   - Invalide `cache:/api/v1/listings/:id`
+   - Invalide `cache:/api/v1/listings?*`
+
+**Code d'invalidation** :
+```typescript
+// src/services/cache.service.ts
+async invalidateListingCache(listingId: number) {
+    await redisClient.del(`cache:/api/v1/listings/${listingId}`);
+    await this.invalidatePattern("cache:/api/v1/listings?*");
+}
+```
+
+---
+
+## 🔒 Contrôle d'Accès et Permissions
+
+### Matrice des Permissions
+
+| Action | Guest | User | Host | Co-Host (can_edit) | Co-Host (no edit) |
+|--------|-------|------|------|--------------------|-------------------|
+| Voir annonces | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Créer annonce | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Modifier annonce | ❌ | ❌ | ✅ (own) | ✅ | ❌ |
+| Supprimer annonce | ❌ | ❌ | ✅ (own) | ❌ | ❌ |
+| Créer réservation | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Voir messages | ❌ | ✅ (own) | ✅ (own) | ✅ (if perm) | ❌ |
+
+### Implémentation
+
+**Vérification Host** :
+```typescript
+// src/services/listing.service.ts:8-17
+const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_host")
+    .eq("id", userId)
+    .single();
+
+if (!profile?.is_host) {
+    throw new ForbiddenError("Only hosts can create listings");
+}
+```
+
+**Vérification Co-Host** :
+```typescript
+// src/services/listing.service.ts:128-150
+private async checkEditPermission(listingId: number, userId: string): Promise<boolean> {
+    // 1. Check if main host
+    const { data: listing } = await supabase
+        .from("listings")
+        .select("host_id")
+        .eq("id", listingId)
+        .single();
+
+    if (listing?.host_id === userId) return true;
+
+    // 2. Check if co-host with permission
+    const { data: coHost } = await supabase
+        .from("co_hosts")
+        .select("can_edit_listing")
+        .eq("listing_id", listingId)
+        .eq("co_host_id", userId)
+        .single();
+
+    return coHost?.can_edit_listing || false;
+}
+```
+
+---
+
+## 📊 Flow de Données Complet (Exemple: Créer une Réservation)
+
+```
+CLIENT                 BACKEND                 REDIS           SUPABASE
+  │                       │                      │                 │
+  │ POST /bookings        │                      │                 │
+  │ {listing_id,dates}    │                      │                 │
+  ├──────────────────────>│                      │                 │
+  │                       │                      │                 │
+  │                  [1. Validation.middleware]  │                 │
+  │                       ├─ Zod schema check   │                 │
+  │                       │  ✅ Valid            │                 │
+  │                       │                      │                 │
+  │                  [2. Auth.middleware]        │                 │
+  │                       ├─ Extract JWT token   │                 │
+  │                       │                      │ getUser(token)  │
+  │                       ├──────────────────────┼────────────────>│
+  │                       │                      │    user data    │
+  │                       │<─────────────────────┼─────────────────┤
+  │                       │  ✅ req.user set     │                 │
+  │                       │                      │                 │
+  │                  [3. BookingService.create]  │                 │
+  │                       │                      │ Check listing   │
+  │                       ├──────────────────────┼────────────────>│
+  │                       │                      │  listing exists │
+  │                       │<─────────────────────┼─────────────────┤
+  │                       │                      │ Check conflicts │
+  │                       ├──────────────────────┼────────────────>│
+  │                       │                      │   no conflicts  │
+  │                       │<─────────────────────┼─────────────────┤
+  │                       │                      │ INSERT booking  │
+  │                       ├──────────────────────┼────────────────>│
+  │                       │                      │   booking created│
+  │                       │<─────────────────────┼─────────────────┤
+  │                       │                      │                 │
+  │                  [4. CacheService.invalidate]│                 │
+  │                       ├─ DEL cache:bookings  │                 │
+  │                       ├─────────────────────>│                 │
+  │                       │      ✅ Cache cleared│                 │
+  │                       │<─────────────────────┤                 │
+  │                       │                      │                 │
+  │  201 Created          │                      │                 │
+  │  {success,data}       │                      │                 │
+  │<──────────────────────┤                      │                 │
+  │                       │                      │                 │
+```
+
+---
+
+## 🚀 Évolutivité et Scalabilité
+
+### Préparation pour la Montée en Charge
+
+**Actuellement** : Monolithe Express (1 instance)
+
+**Futur (scalabilité horizontale)** :
+```
+                    ┌─────────────────┐
+                    │  LOAD BALANCER  │
+                    │   (Nginx/Caddy) │
+                    └────────┬────────┘
+                             │
+          ┌──────────────────┼──────────────────┐
+          │                  │                  │
+    ┌─────▼─────┐     ┌─────▼─────┐     ┌─────▼─────┐
+    │ Backend 1 │     │ Backend 2 │     │ Backend 3 │
+    │ (Express) │     │ (Express) │     │ (Express) │
+    └─────┬─────┘     └─────┬─────┘     └─────┬─────┘
+          │                  │                  │
+          └──────────────────┼──────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │  REDIS CLUSTER  │
+                    │  (Shared cache) │
+                    └────────┬────────┘
+                             │
+                    ┌────────▼────────┐
+                    │    SUPABASE     │
+                    │  (PostgreSQL)   │
+                    └─────────────────┘
+```
+
+**Avantages de l'architecture actuelle** :
+- ✅ Stateless (pas de session en mémoire)
+- ✅ JWT dans cookies (partageable entre instances)
+- ✅ Cache Redis centralisé
+- ✅ Ready pour Docker + Kubernetes
+
+---
+
+## 📁 Structure des Fichiers
+
+```
+minibnb-groupA-backend/
+├── src/
+│   ├── app.ts                          # 🚀 Point d'entrée Express
+│   │
+│   ├── config/                         # ⚙️ Configuration
+│   │   ├── env.ts                      # Variables d'environnement (dotenv + Zod)
+│   │   ├── supabase.ts                 # Client Supabase
+│   │   ├── redis.ts                    # Client Redis
+│   │   ├── cookies.ts                  # Config cookies JWT
+│   │   └── swagger.ts                  # Config OpenAPI/Swagger
+│   │
+│   ├── middlewares/                    # 🔧 Middlewares Express
+│   │   ├── auth.middleware.ts          # Authentification JWT (cookie + bearer)
+│   │   ├── validation.middleware.ts    # Validation Zod
+│   │   ├── cache.middleware.ts         # Cache Redis (serveur)
+│   │   ├── http-cache.middleware.ts    # Cache HTTP (navigateur) 🆕
+│   │   └── error.middleware.ts         # Gestionnaire d'erreurs centralisé
+│   │
+│   ├── routes/                         # 🛣️ Routes API
+│   │   ├── index.ts                    # Router principal (/api)
+│   │   └── v1/                         # Version 1 de l'API
+│   │       ├── index.ts                # Router v1 (/api/v1)
+│   │       ├── auth.routes.ts          # /auth (signup, login, refresh)
+│   │       ├── listing.routes.ts       # /listings (CRUD)
+│   │       ├── booking.routes.ts       # /bookings (create, list)
+│   │       ├── profile.routes.ts       # /profiles (read, update)
+│   │       ├── message.routes.ts       # /conversations (messages)
+│   │       └── cohost.routes.ts        # /cohosts (permissions)
+│   │
+│   ├── services/                       # 🧠 Logique métier
+│   │   ├── auth.service.ts             # Authentification (Supabase)
+│   │   ├── listing.service.ts          # CRUD annonces + permissions
+│   │   ├── booking.service.ts          # Réservations + validation dates
+│   │   ├── message.service.ts          # Conversations
+│   │   └── cache.service.ts            # Invalidation cache Redis
+│   │
+│   ├── validators/                     # ✅ Schémas de validation Zod
+│   │   ├── user.validator.ts           # Signup, login
+│   │   ├── listing.validator.ts        # Create/update listing
+│   │   ├── booking.validator.ts        # Create booking
+│   │   └── message.validator.ts        # Send message
+│   │
+│   ├── types/                          # 📦 Types TypeScript
+│   │   ├── listing.types.ts
+│   │   ├── booking.types.ts
+│   │   └── ...
+│   │
+│   └── utils/                          # 🛠️ Utilitaires
+│       ├── errors.ts                   # Classes d'erreurs (AppError, NotFoundError, etc.)
+│       └── response.ts                 # Format de réponse uniforme (sendSuccess)
+│
+├── tests/                              # 🧪 Tests Jest
+│   ├── routes/v1/                      # Tests d'intégration (routes)
+│   │   ├── auth.routes.test.ts
+│   │   ├── listing.routes.test.ts
+│   │   ├── booking.routes.test.ts
+│   │   └── message.routes.test.ts
+│   └── services/                       # Tests unitaires (services)
+│       └── auth.service.test.ts
+│
+├── .github/workflows/                  # 🤖 CI/CD
+│   └── deploy.yml                      # Déploiement automatique
+│
+├── package.json                        # 📦 Dépendances npm
+├── tsconfig.json                       # ⚙️ Config TypeScript
+├── jest.config.ts                      # 🧪 Config Jest
+├── Dockerfile                          # 🐳 Image Docker
+├── .env.example                        # 📝 Exemple variables d'env
+│
+├── README.md                           # 📚 Documentation principale 🆕
+├── ARCHITECTURE.md                     # 🏗️ Documentation architecture 🆕
+├── AUDIT.md                            # 📋 Rapport d'audit technique
+└── DEPLOYMENT.md                       # 🚀 Guide de déploiement
+```
+
+---
+
+## 🔍 Points Techniques Importants
+
+### 1. Gestion des Erreurs
+
+Toutes les erreurs passent par `error.middleware.ts` :
+```typescript
+AppError (statusCode, message, errors?)
+├── BadRequestError (400)
+├── UnauthorizedError (401)
+├── ForbiddenError (403)
+├── NotFoundError (404)
+└── ConflictError (409)
+```
+
+### 2. Validation des Données
+
+**Toutes** les routes POST/PATCH utilisent Zod :
+```typescript
+router.post("/", validate(createListingSchema), async (req, res) => {
+    // req.body est déjà validé et typé
+});
+```
+
+### 3. Authentification
+
+JWT géré par Supabase :
+- Access token : 1h (cookie httpOnly)
+- Refresh token : 7 jours (cookie httpOnly)
+- Rotation automatique des tokens
+
+### 4. Cache
+
+Stratégie multi-niveaux :
+- Navigateur : Cache-Control + ETags
+- Serveur : Redis avec TTL
+- Invalidation : Pattern matching
+
+---
+
+## 📚 Ressources Externes
+
+- [Supabase Documentation](https://supabase.com/docs)
+- [Express.js Guide](https://expressjs.com/en/guide/routing.html)
+- [Zod Schema Validation](https://zod.dev/)
+- [Redis Caching](https://redis.io/docs/manual/client-side-caching/)
+- [JWT Best Practices](https://tools.ietf.org/html/rfc8725)
+
+---
+
+**Dernière mise à jour** : 15 janvier 2026
+```
+
+---
+
+#### ✅ Validation de la Solution
+
+**Test 1 : Vérifier que les fichiers sont créés**
+```bash
+ls -la README.md ARCHITECTURE.md
+# Devrait afficher les deux fichiers
+```
+
+**Test 2 : Vérifier la documentation Markdown**
+```bash
+# Installer un viewer Markdown (optionnel)
+npm install -g markdown-preview
+
+# Prévisualiser
+markdown-preview README.md
+markdown-preview ARCHITECTURE.md
+```
+
+**Test 3 : Valider les liens internes**
+```bash
+# Vérifier que les liens fonctionnent
+grep -r "\[.*\](.*\.md)" README.md ARCHITECTURE.md
+```
+
+**Test 4 : Accessibilité pour les nouveaux développeurs**
+- Un nouveau dev devrait pouvoir installer et lancer le projet en < 10 min
+- Tester avec `pnpm install && pnpm dev`
+
+---
+
+### 🟡 PRIORITÉ 3 : Ajouter le Rate Limiting
+
+#### 📋 Contexte Technique
+
+**Problème actuel** :
+- Pas de protection contre les attaques par force brute
+- Pas de limite sur le nombre de requêtes par IP
+- Vulnérable au spam et aux abus
+
+**Solution à implémenter** :
+Utiliser `express-rate-limit` pour limiter les requêtes
+
+---
+
+#### 📝 Étape 1 : Installer la dépendance
+
+```bash
+pnpm add express-rate-limit
+pnpm add -D @types/express-rate-limit
+```
+
+---
+
+#### 📝 Étape 2 : Créer le Middleware Rate Limit
+
+**Fichier à créer** : `src/middlewares/rate-limit.middleware.ts`
+
+```typescript
+import rateLimit from "express-rate-limit";
+import { env } from "../config/env";
+
+/**
+ * Rate limiter général (toutes les routes)
+ * 100 requêtes par 15 minutes par IP
+ */
+export const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limite: 100 requêtes par fenêtre
+    message: {
+        success: false,
+        message: "Too many requests, please try again later.",
+    },
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    skip: () => env.NODE_ENV === "test", // Désactiver en test
+});
+
+/**
+ * Rate limiter strict pour l'authentification
+ * 5 tentatives par 15 minutes par IP
+ */
+export const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // Limite: 5 tentatives de login/signup
+    message: {
+        success: false,
+        message: "Too many authentication attempts, please try again after 15 minutes.",
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: () => env.NODE_ENV === "test",
+});
+
+/**
+ * Rate limiter pour les créations de contenu
+ * 10 créations par heure par IP
+ */
+export const creationLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 heure
+    max: 10, // Limite: 10 créations
+    message: {
+        success: false,
+        message: "Too many creations, please try again later.",
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: () => env.NODE_ENV === "test",
+});
+```
+
+---
+
+#### 📝 Étape 3 : Appliquer le Rate Limiting
+
+**Fichier à modifier** : `src/app.ts`
+
+```typescript
+import { generalLimiter } from "./middlewares/rate-limit.middleware";
+
+// Après les middlewares globaux (ligne 50)
+app.use(generalLimiter); // Rate limiting global
+```
+
+**Fichier à modifier** : `src/routes/v1/auth.routes.ts`
+
+```typescript
+import { authLimiter } from "../../middlewares/rate-limit.middleware";
+
+// Appliquer sur les routes d'authentification
+router.post("/signup", authLimiter, validate(signupSchema), async (req, res, next) => {
+router.post("/login", authLimiter, validate(loginSchema), async (req, res, next) => {
+```
+
+**Fichier à modifier** : `src/routes/v1/listing.routes.ts`
+
+```typescript
+import { creationLimiter } from "../../middlewares/rate-limit.middleware";
+
+// Appliquer sur la création d'annonces
+router.post("/", authenticate, creationLimiter, validate(createListingSchema), async (req, res, next) => {
+```
+
+---
+
+#### ✅ Validation de la Solution
+
+**Test 1 : Tester le rate limiting auth**
+```bash
+# Faire 6 requêtes de login (limite: 5)
+for i in {1..6}; do
+  curl -X POST http://localhost:5000/api/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email":"test@example.com","password":"wrong"}'
+done
+
+# La 6ème requête devrait retourner 429 Too Many Requests
+```
+
+**Test 2 : Vérifier les headers**
+```bash
+curl -I http://localhost:5000/api/v1/listings
+
+# Devrait afficher :
+# RateLimit-Limit: 100
+# RateLimit-Remaining: 99
+# RateLimit-Reset: 1642253400
+```
+
+---
+
+### 🟢 PRIORITÉ 4 : Ajouter du Logging Structuré
+
+#### 📋 Contexte Technique
+
+**Problème actuel** :
+- Utilisation de `console.log()` et `console.error()`
+- Logs non structurés, difficiles à parser
+- Pas de niveaux de log (debug, info, warn, error)
+- Pas de centralisation des logs
+
+**Solution à implémenter** :
+Utiliser Winston pour des logs structurés en JSON
+
+---
+
+#### 📝 Étape 1 : Installer Winston
+
+```bash
+pnpm add winston
+pnpm add -D @types/winston
+```
+
+---
+
+#### 📝 Étape 2 : Créer le Logger
+
+**Fichier à créer** : `src/config/logger.ts`
+
+```typescript
+import winston from "winston";
+import { env } from "./env";
+
+const logFormat = winston.format.combine(
+    winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+    winston.format.errors({ stack: true }),
+    winston.format.splat(),
+    winston.format.json()
+);
+
+const logger = winston.createLogger({
+    level: env.NODE_ENV === "production" ? "info" : "debug",
+    format: logFormat,
+    defaultMeta: { service: "minibnb-backend" },
+    transports: [
+        // Fichier pour les erreurs
+        new winston.transports.File({
+            filename: "logs/error.log",
+            level: "error",
+        }),
+        // Fichier pour tous les logs
+        new winston.transports.File({
+            filename: "logs/combined.log",
+        }),
+    ],
+});
+
+// En développement, logger aussi dans la console
+if (env.NODE_ENV !== "production") {
+    logger.add(
+        new winston.transports.Console({
+            format: winston.format.combine(
+                winston.format.colorize(),
+                winston.format.simple()
+            ),
+        })
+    );
+}
+
+// Ne pas logger en mode test
+if (env.NODE_ENV === "test") {
+    logger.transports.forEach((t) => (t.silent = true));
+}
+
+export default logger;
+```
+
+---
+
+#### 📝 Étape 3 : Remplacer console.log par logger
+
+**Fichier à modifier** : `src/app.ts`
+
+```typescript
+import logger from "./config/logger";
+
+// Remplacer ligne 103-104
+logger.info(`Server running on http://localhost:${env.PORT}`);
+logger.info(`Environment: ${env.NODE_ENV}`);
+
+// Remplacer ligne 107
+logger.error("Failed to start server:", error);
+```
+
+**Fichier à modifier** : `src/middlewares/error.middleware.ts`
+
+```typescript
+import logger from "../config/logger";
+
+// Remplacer ligne 35
+logger.error("Unhandled error:", { error: error.message, stack: error.stack });
+```
+
+**Fichier à modifier** : `src/middlewares/cache.middleware.ts`
+
+```typescript
+import logger from "../config/logger";
+
+// Remplacer ligne 26
+logger.error("Cache error:", error);
+```
+
+---
+
+#### 📝 Étape 4 : Logger les requêtes HTTP
+
+**Fichier à créer** : `src/middlewares/logger.middleware.ts`
+
+```typescript
+import { Request, Response, NextFunction } from "express";
+import logger from "../config/logger";
+
+export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
+    const start = Date.now();
+
+    res.on("finish", () => {
+        const duration = Date.now() - start;
+
+        logger.info("HTTP Request", {
+            method: req.method,
+            url: req.originalUrl,
+            status: res.statusCode,
+            duration: `${duration}ms`,
+            ip: req.ip,
+            userAgent: req.get("user-agent"),
+        });
+    });
+
+    next();
+};
+```
+
+**Fichier à modifier** : `src/app.ts`
+
+```typescript
+import { requestLogger } from "./middlewares/logger.middleware";
+
+// Ajouter après les middlewares globaux (ligne 50)
+app.use(requestLogger); // Logger les requêtes
+```
+
+---
+
+#### ✅ Validation de la Solution
+
+**Test 1 : Vérifier les logs**
+```bash
+# Lancer le serveur
+pnpm dev
+
+# Faire une requête
+curl http://localhost:5000/api/v1/listings
+
+# Vérifier les logs
+cat logs/combined.log | tail -5
+```
+
+**Test 2 : Format JSON**
+```bash
+# Les logs devraient être en JSON
+cat logs/combined.log | jq .
+```
+
+**Test 3 : Filtrer par niveau**
+```bash
+# Voir seulement les erreurs
+cat logs/error.log
+```
+
+---
+
+## 📊 Checklist Finale de Résolution
+
+### ✅ À Faire
+
+- [ ] **Cache HTTP** : Créer `src/middlewares/http-cache.middleware.ts`
+- [ ] **Cache HTTP** : Modifier `src/routes/v1/listing.routes.ts` (2 endroits)
+- [ ] **Cache HTTP** : Appliquer sur les autres routes GET
+- [ ] **README.md** : Créer le fichier avec le contenu fourni
+- [ ] **ARCHITECTURE.md** : Créer le fichier avec le contenu fourni
+- [ ] **Rate Limiting** : Installer `express-rate-limit`
+- [ ] **Rate Limiting** : Créer `src/middlewares/rate-limit.middleware.ts`
+- [ ] **Rate Limiting** : Appliquer sur `src/app.ts` et routes sensibles
+- [ ] **Logging** : Installer `winston`
+- [ ] **Logging** : Créer `src/config/logger.ts`
+- [ ] **Logging** : Remplacer tous les `console.log` par `logger`
+- [ ] **Logging** : Créer `src/middlewares/logger.middleware.ts`
+
+### ✅ Tests de Validation
+
+- [ ] Tester les headers Cache-Control avec `curl -I`
+- [ ] Tester la réponse 304 Not Modified avec ETags
+- [ ] Vérifier que README.md et ARCHITECTURE.md sont lisibles
+- [ ] Tester le rate limiting (429 après limite)
+- [ ] Vérifier les logs JSON dans `logs/combined.log`
+- [ ] Exécuter `pnpm test` (tous les tests passent)
+- [ ] Exécuter `pnpm build` (build réussit)
+
+---
+
+**Note pour Gemini ou autre assistant** :
+Ce guide contient **tout le code nécessaire** pour résoudre les problèmes identifiés. Vous pouvez copier-coller directement les exemples de code fournis. Chaque section inclut :
+- Le contexte technique complet
+- Les fichiers à créer/modifier avec chemins exacts
+- Le code complet prêt à utiliser
+- Les commandes de test pour valider
+
+Suivez les étapes dans l'ordre de priorité (🔴 puis 🟡 puis 🟢) pour un impact maximal.
+
+---
+
 ## 📂 Structure du Projet
 
 ```
