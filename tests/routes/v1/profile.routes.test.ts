@@ -16,7 +16,7 @@ jest.mock('../../../src/config/supabase', () => ({
 // 2. Mock Auth Middleware
 jest.mock('../../../src/middlewares/auth.middleware', () => ({
     authenticate: (req: any, res: any, next: any) => {
-        req.user = { id: 'user-123' }; // Mock authenticated user
+        req.user = { id: 'user-123', email: 'test@example.com' }; // Mock authenticated user
         next();
     },
 }));
@@ -62,6 +62,7 @@ describe('Profile Routes', () => {
             // Verify supabase was called with null
             expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
                 id: 'user-123',
+                email: 'test@example.com',
                 avatar_url: null
             }));
         });
@@ -76,6 +77,7 @@ describe('Profile Routes', () => {
 
             expect(response.status).toBe(200);
             expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+                email: 'test@example.com',
                 avatar_url: "https://example.com/pic.jpg"
             }));
         });
@@ -92,6 +94,7 @@ describe('Profile Routes', () => {
 
             // Verify payload transformation
             expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+                email: 'test@example.com',
                 avatar_url: null
             }));
             // Ensure avatarUrl was removed (not strictly checking 'not.objectContaining' but conceptually)

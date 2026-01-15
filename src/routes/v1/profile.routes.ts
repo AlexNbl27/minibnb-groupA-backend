@@ -82,6 +82,7 @@ router.patch(
                 .from("profiles")
                 .upsert({
                     id: (req as AuthRequest).user!.id,
+                    email: (req as AuthRequest).user!.email,
                     ...req.body
                 })
                 .select()
