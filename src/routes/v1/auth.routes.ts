@@ -2,7 +2,8 @@ import express from "express";
 import { AuthService } from "../../services/auth.service";
 import { ConflictError } from "../../utils/errors";
 import { validate } from "../../middlewares/validation.middleware";
-import { signupSchema, loginSchema } from "../../validators/user.validator";
+import { signupSchema, loginSchema, changePasswordSchema } from "../../validators/user.validator";
+import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 import { sendSuccess } from "../../utils/response";
 import { UnauthorizedError } from "../../utils/errors";
 import {
@@ -238,5 +239,59 @@ router.post("/refresh", async (req, res, next) => {
     next(error);
   }
 });
+
+/**
+ * @swagger
+ * /auth/change-password:
+ *   post:
+ *     summary: Change user password
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - old_password
+ *               - new_password
+ *             properties:
+ *               old_password:
+ *                 type: string
+ *               new_password:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       200:
+ *         description: Password updated successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Invalid old password
+ */
+router.post(
+  "/change-password",
+  authenticate,
+  validate(changePasswordSchema),
+  async (req, res, next) => {
+    try {
+      const { old_password, new_password } = req.body;
+      const { id, email } = (req as AuthRequest).user!;
+
+      await authService.updatePassword(id, email, old_password, new_password);
+
+      sendSuccess(res, { message: "Password updated successfully" });
+    } catch (error: any) {
+      // Check for specific Supabase error message for invalid login
+      if (error.message === "Invalid login credentials") {
+        next(new UnauthorizedError("Invalid old password"));
+        return;
+      }
+      next(error);
+    }
+  }
+);
 
 export default router;

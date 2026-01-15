@@ -6,6 +6,15 @@ const mockSignUp = jest.fn();
 const mockSignIn = jest.fn();
 const mockSignOut = jest.fn();
 const mockRefreshSession = jest.fn();
+const mockUpdatePassword = jest.fn();
+
+// Mock Auth Middleware
+jest.mock('../../../src/middlewares/auth.middleware', () => ({
+    authenticate: (req: any, res: any, next: any) => {
+        req.user = { id: 'user-123', email: 'test@example.com' };
+        next();
+    },
+}));
 
 jest.mock('../../../src/services/auth.service', () => {
     return {
@@ -15,6 +24,7 @@ jest.mock('../../../src/services/auth.service', () => {
                 signIn: mockSignIn,
                 signOut: mockSignOut,
                 refreshSession: mockRefreshSession,
+                updatePassword: mockUpdatePassword,
             };
         }),
     };
@@ -124,6 +134,41 @@ describe('Auth Routes', () => {
 
             expect(response.status).toBe(200);
             expect(mockSignOut).toHaveBeenCalled();
+        });
+    });
+
+    describe('POST /api/v1/auth/change-password', () => {
+        it('should change password successfully', async () => {
+            mockUpdatePassword.mockResolvedValue({ user: { id: 'user-123' } });
+
+            const response = await request(app)
+                .post('/api/v1/auth/change-password')
+                .send({
+                    old_password: 'oldPassword123',
+                    new_password: 'newPassword123'
+                });
+
+            expect(response.status).toBe(200);
+            expect(mockUpdatePassword).toHaveBeenCalledWith(
+                'user-123',
+                'test@example.com',
+                'oldPassword123',
+                'newPassword123'
+            );
+        });
+
+        it('should fail with invalid old password', async () => {
+            const error = new Error('Invalid login credentials');
+            mockUpdatePassword.mockRejectedValue(error);
+
+            const response = await request(app)
+                .post('/api/v1/auth/change-password')
+                .send({
+                    old_password: 'wrongPassword',
+                    new_password: 'newPassword123'
+                });
+
+            expect(response.status).toBe(401);
         });
     });
 });
