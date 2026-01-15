@@ -3,7 +3,7 @@ import { supabase } from "../../config/supabase";
 import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validation.middleware";
 import { updateProfileSchema } from "../../validators/user.validator";
-import { sendSuccess } from "../../utils/response";
+import { OkResponse } from "../../utils/success";
 import { NotFoundError } from "../../utils/errors";
 
 const router = express.Router();
@@ -37,7 +37,7 @@ router.get("/me", authenticate, async (req, res, next) => {
         if (error) throw error;
         if (!data) throw new NotFoundError("Profile not found");
 
-        sendSuccess(res, data);
+        new OkResponse(data).send(res);
     } catch (error) {
         next(error);
     }
@@ -82,7 +82,7 @@ router.patch(
                 .single();
 
             if (error) throw error;
-            sendSuccess(res, data);
+            new OkResponse(data).send(res);
         } catch (error) {
             next(error);
         }

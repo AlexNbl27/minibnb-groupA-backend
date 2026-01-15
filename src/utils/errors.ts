@@ -1,3 +1,24 @@
+import { Response } from "express";
+
+export class ErrorResponse {
+    constructor(
+        public statusCode: number,
+        public message: string,
+        public status: string = "error",
+        public errors?: any[]
+    ) { }
+
+    public send(res: Response): void {
+        res.status(this.statusCode).json({
+            success: false,
+            status: this.status,
+            message: this.message,
+            code: this.statusCode,
+            errors: this.errors,
+        });
+    }
+}
+
 export class AppError extends Error {
     public status: string;
     public isOperational: boolean;
@@ -11,7 +32,6 @@ export class AppError extends Error {
         this.status = `${statusCode}`.startsWith("4") ? "fail" : "error";
         this.isOperational = true;
 
-        this.name = this.constructor.name;
         Error.captureStackTrace(this, this.constructor);
     }
 }

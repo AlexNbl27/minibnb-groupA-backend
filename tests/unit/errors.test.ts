@@ -1,10 +1,42 @@
 import request from "supertest";
 import express, { Request, Response, NextFunction } from "express";
 import { errorHandler } from "../../src/middlewares/error.middleware";
-import { AppError, NotFoundError, BadRequestError } from "../../src/utils/errors";
+import { AppError, NotFoundError, BadRequestError, ErrorResponse } from "../../src/utils/errors";
 import { ZodError, z } from "zod";
 
 describe("Error Handling", () => {
+    let mockReq: Partial<Request>;
+    let mockRes: Partial<Response>;
+    let mockNext: jest.Mock;
+    let jsonMock: jest.Mock;
+    let statusMock: jest.Mock;
+
+    beforeEach(() => {
+        mockReq = {};
+        jsonMock = jest.fn();
+        statusMock = jest.fn().mockReturnValue({ json: jsonMock });
+        mockRes = {
+            status: statusMock,
+            json: jsonMock,
+        } as unknown as Response;
+        mockNext = jest.fn();
+    });
+    describe("ErrorResponse", () => {
+        it("should send error status and structure", () => {
+            const errors = ["Field required"];
+            new ErrorResponse(400, "Bad Request", "fail", errors).send(mockRes as Response);
+
+            expect(statusMock).toHaveBeenCalledWith(400);
+            expect(jsonMock).toHaveBeenCalledWith({
+                success: false,
+                status: "fail",
+                message: "Bad Request",
+                code: 400,
+                errors: errors,
+            });
+        });
+    });
+
     describe("AppError Classes", () => {
         it("should create AppError with correct properties", () => {
             const error = new AppError(400, "Test error");

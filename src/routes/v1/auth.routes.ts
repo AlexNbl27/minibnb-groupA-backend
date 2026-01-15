@@ -3,7 +3,7 @@ import { AuthService } from "../../services/auth.service";
 import { ConflictError } from "../../utils/errors";
 import { validate } from "../../middlewares/validation.middleware";
 import { signupSchema, loginSchema } from "../../validators/user.validator";
-import { sendSuccess } from "../../utils/response";
+import { CreatedResponse, OkResponse } from "../../utils/success";
 import { UnauthorizedError } from "../../utils/errors";
 import {
   ACCESS_TOKEN_COOKIE_OPTIONS,
@@ -91,7 +91,7 @@ router.post("/signup", validate(signupSchema), async (req, res, next) => {
       );
     }
 
-    sendSuccess(res, { user: data.user }, 201);
+    new CreatedResponse({ user: data.user }).send(res);
   } catch (error: any) {
     if (
       error.message === "User already registered" ||
@@ -158,7 +158,7 @@ router.post("/login", validate(loginSchema), async (req, res, next) => {
       );
     }
 
-    sendSuccess(res, { user: data.user });
+    new OkResponse({ user: data.user }).send(res);
   } catch (error) {
     next(error);
   }
@@ -181,7 +181,7 @@ router.post("/logout", async (req, res, next) => {
     res.clearCookie(COOKIE_NAMES.ACCESS_TOKEN, ACCESS_TOKEN_COOKIE_OPTIONS);
     res.clearCookie(COOKIE_NAMES.REFRESH_TOKEN, REFRESH_TOKEN_COOKIE_OPTIONS);
 
-    sendSuccess(res, { message: "Logged out successfully" });
+    new OkResponse({ message: "Logged out successfully" }).send(res);
   } catch (error) {
     next(error);
   }
@@ -223,7 +223,7 @@ router.post("/refresh", async (req, res, next) => {
       );
     }
 
-    sendSuccess(res, { user: data.user });
+    new OkResponse({ user: data.user }).send(res);
   } catch (error) {
     next(error);
   }

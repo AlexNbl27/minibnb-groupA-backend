@@ -3,7 +3,7 @@ import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validation.middleware";
 import { MessageService } from "../../services/message.service";
 import { sendMessageSchema } from "../../validators/message.validator";
-import { sendSuccess } from "../../utils/response";
+import { CreatedResponse, OkResponse } from "../../utils/success";
 
 const router = express.Router();
 
@@ -56,12 +56,12 @@ router.get("/:conversationId", authenticate, async (req, res, next) => {
             pagination
         );
 
-        sendSuccess(res, result.data, 200, {
+        new OkResponse(result.data, {
             total: result.total,
             page: pagination.page,
             limit: pagination.limit,
             totalPages: Math.ceil(result.total / pagination.limit)
-        });
+        }).send(res);
     } catch (error) {
         next(error);
     }
@@ -107,7 +107,7 @@ router.post(
                 Number(req.params.conversationId),
                 req.body.content,
             );
-            sendSuccess(res, message, 201);
+            new CreatedResponse(message).send(res);
         } catch (error) {
             next(error);
         }

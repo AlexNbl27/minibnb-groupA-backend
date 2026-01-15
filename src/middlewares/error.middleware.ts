@@ -2,6 +2,8 @@ import { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
 import { AppError } from "../utils/errors";
 import { env } from "../config/env";
+import { ErrorResponse } from "../utils/errors";
+
 
 export const errorHandler = (
     error: any,
@@ -9,7 +11,7 @@ export const errorHandler = (
     res: Response,
     next: NextFunction,
 ) => {
-    let statusCode = 500;
+    let statusCode: number = 500;
     let message = "Internal server error";
     let status = "error";
     let errors: any[] | undefined;
@@ -47,12 +49,5 @@ export const errorHandler = (
             console.error("Unhandled error:", error);
         }
     }
-
-    res.status(statusCode).json({
-        success: false,
-        status,
-        message,
-        code: statusCode,
-        errors,
-    });
+    new ErrorResponse(statusCode, message, status, errors).send(res);
 };

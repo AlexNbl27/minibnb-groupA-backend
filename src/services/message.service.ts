@@ -10,12 +10,8 @@ export class MessageService {
         content: string,
     ): Promise<Message> {
         // Vérifier permission (guest, hôte ou co-hôte avec can_respond_messages)
-        const canSend = await this.checkSendPermission(conversationId, userId);
-        if (!canSend) {
-            throw new ForbiddenError(
-                "You cannot send messages in this conversation",
-            );
-        }
+        // Vérifier permission
+        await this.checkSendPermission(conversationId, userId);
 
         const { data: message, error } = await supabase
             .from("messages")
@@ -38,10 +34,7 @@ export class MessageService {
         pagination: { page: number; limit: number } = { page: 1, limit: 10 },
     ): Promise<{ data: Message[]; total: number }> {
         // Vérifier permission
-        const canView = await this.checkViewPermission(conversationId, userId);
-        if (!canView) {
-            throw new ForbiddenError("You cannot view this conversation");
-        }
+        await this.checkViewPermission(conversationId, userId);
 
         const from = (pagination.page - 1) * pagination.limit;
         const to = from + pagination.limit - 1;
@@ -65,21 +58,21 @@ export class MessageService {
     private async checkSendPermission(
         conversationId: number,
         userId: string,
-    ): Promise<boolean> {
+    ): Promise<void> {
         const { data: conversation } = await supabase
             .from("conversations")
             .select("guest_id, host_id, listing_id")
             .eq("id", conversationId)
             .single();
 
-        if (!conversation) return false;
+        if (!conversation) throw new NotFoundError("Conversation not found");
 
         // Guest ou hôte
         if (
             conversation.guest_id === userId ||
             conversation.host_id === userId
         ) {
-            return true;
+            return;
         }
 
         // Co-hôte avec can_respond_messages
@@ -90,27 +83,29 @@ export class MessageService {
             .eq("co_host_id", userId)
             .single();
 
-        return coHost?.can_respond_messages || false;
+        if (!coHost?.can_respond_messages) {
+            throw new ForbiddenError("You cannot send messages in this conversation");
+        }
     }
 
     // Vérifier permission de lecture
     private async checkViewPermission(
         conversationId: number,
         userId: string,
-    ): Promise<boolean> {
+    ): Promise<void> {
         const { data: conversation } = await supabase
             .from("conversations")
             .select("guest_id, host_id, listing_id")
             .eq("id", conversationId)
             .single();
 
-        if (!conversation) return false;
+        if (!conversation) throw new NotFoundError("Conversation not found");
 
         if (
             conversation.guest_id === userId ||
             conversation.host_id === userId
         ) {
-            return true;
+            return;
         }
 
         const { data: coHost } = await supabase
@@ -120,6 +115,8 @@ export class MessageService {
             .eq("co_host_id", userId)
             .single();
 
-        return coHost?.can_access_messages || false;
+        if (!coHost?.can_access_messages) {
+            throw new ForbiddenError("You cannot view this conversation");
+        }
     }
 }
