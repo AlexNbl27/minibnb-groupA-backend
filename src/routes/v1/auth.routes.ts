@@ -91,7 +91,11 @@ router.post("/signup", validate(signupSchema), async (req, res, next) => {
       );
     }
 
-    sendSuccess(res, { user: data.user }, 201);
+
+    sendSuccess(res, {
+      user: data.user,
+      access_token: data.session?.access_token
+    }, 201);
   } catch (error: any) {
     if (
       error.message === "User already registered" ||
@@ -158,7 +162,10 @@ router.post("/login", validate(loginSchema), async (req, res, next) => {
       );
     }
 
-    sendSuccess(res, { user: data.user });
+    sendSuccess(res, {
+      user: data.user,
+      access_token: data.session?.access_token
+    });
   } catch (error) {
     next(error);
   }
@@ -223,7 +230,10 @@ router.post("/refresh", async (req, res, next) => {
       );
     }
 
-    sendSuccess(res, { user: data.user });
+    sendSuccess(res, {
+      user: data.user,
+      access_token: data.session?.access_token
+    });
   } catch (error) {
     next(error);
   }
