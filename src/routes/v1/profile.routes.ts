@@ -71,6 +71,11 @@ router.patch(
     validate(updateProfileSchema),
     async (req, res, next) => {
         try {
+            if (req.body.avatar_url === "" || req.body.avatarUrl === "") {
+                req.body.avatar_url = null;
+                delete req.body.avatarUrl;
+            }
+
             const { data, error } = await supabase
                 .from("profiles")
                 .update(req.body)
