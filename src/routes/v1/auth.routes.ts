@@ -3,14 +3,14 @@ import { AuthService } from "../../services/auth.service";
 import { ConflictError } from "../../utils/errors";
 import { validate } from "../../middlewares/validation.middleware";
 import { signupSchema, loginSchema, changePasswordSchema } from "../../validators/user.validator";
-import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
-import { OkResponse } from "../../utils/sucess";
-import { UnauthorizedError } from "../../utils/errors";
+import { CreatedResponse, OkResponse } from "../../utils/success";
+import { UnauthorizedError, NotFoundError } from "../../utils/errors";
 import {
   ACCESS_TOKEN_COOKIE_OPTIONS,
   REFRESH_TOKEN_COOKIE_OPTIONS,
   COOKIE_NAMES,
 } from "../../config/cookies";
+import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 
 const router = express.Router();
 const authService = new AuthService();
@@ -92,8 +92,7 @@ router.post("/signup", validate(signupSchema), async (req, res, next) => {
       );
     }
 
-
-    new OkResponse({ user: data.user }).send(res);
+    new CreatedResponse({ user: data.user }).send(res);
   } catch (error: any) {
     if (
       error.message === "User already registered" ||
@@ -161,7 +160,15 @@ router.post("/login", validate(loginSchema), async (req, res, next) => {
     }
 
     new OkResponse({ user: data.user }).send(res);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "User not found") {
+      next(new NotFoundError("User not found"));
+      return;
+    }
+    if (error.message === "Invalid password") {
+      next(new UnauthorizedError("Invalid password"));
+      return;
+    }
     next(error);
   }
 });
@@ -185,6 +192,7 @@ router.post("/logout", async (req, res, next) => {
 
     new OkResponse({ message: "Logged out successfully" }).send(res);
   } catch (error) {
+    // Logout should ideally always succeed from client perspective
     next(error);
   }
 });
@@ -226,7 +234,11 @@ router.post("/refresh", async (req, res, next) => {
     }
 
     new OkResponse({ user: data.user }).send(res);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === "Invalid Refresh Token" || error.message === "Refresh Token Not Found") {
+      next(new UnauthorizedError("Invalid or expired refresh token"));
+      return;
+    }
     next(error);
   }
 });
@@ -273,7 +285,7 @@ router.post(
 
       await authService.updatePassword(id, email, old_password, new_password);
 
-      sendSuccess(res, { message: "Password updated successfully" });
+      new OkResponse({ message: "Password updated successfully" }).send(res);
     } catch (error: any) {
       if (error.message === "Invalid login credentials") {
         next(new UnauthorizedError("Invalid old password"));
@@ -283,5 +295,6 @@ router.post(
     }
   }
 );
+
 
 export default router;

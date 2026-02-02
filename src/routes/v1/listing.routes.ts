@@ -1,6 +1,7 @@
 import express from "express";
 import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validation.middleware";
+import { NotFoundError } from "../../utils/errors";
 import { cacheMiddleware } from "../../middlewares/cache.middleware";
 import { ListingService } from "../../services/listing.service";
 import { CacheService } from "../../services/cache.service";
@@ -382,7 +383,11 @@ router.post("/:id/cohosts", authenticate, async (req, res, next) => {
 
         if (error) throw error;
         new CreatedResponse(data).send(res);
-    } catch (error) {
+    } catch (error: any) {
+        if (error.code === 'PGRST116') {
+            next(new NotFoundError("Listing not found"));
+            return;
+        }
         next(error);
     }
 });

@@ -16,6 +16,13 @@ export const loginSchema = z.object({
     }),
 });
 
+export const changePasswordSchema = z.object({
+    body: z.object({
+        old_password: z.string(),
+        new_password: z.string().min(8),
+    }),
+});
+
 export const updateProfileSchema = z.object({
     body: z.object({
         first_name: z.string().min(2).optional(),
@@ -23,12 +30,5 @@ export const updateProfileSchema = z.object({
         phone: z.string().optional(),
         avatar_url: z.union([z.string().url(), z.literal("")]).optional(),
         bio: z.string().max(500).optional(),
-    }),
-});
-
-export const changePasswordSchema = z.object({
-    body: z.object({
-        old_password: z.string(),
-        new_password: z.string().min(8),
     }),
 });

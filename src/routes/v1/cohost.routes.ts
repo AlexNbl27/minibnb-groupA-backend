@@ -43,9 +43,11 @@ router.delete("/:id", authenticate, async (req, res, next) => {
             .eq("id", coHostId)
             .single();
 
-        if (fetchError) throw fetchError;
-        if (!coHost) {
-            throw new NotFoundError("Co-host record not found.");
+        if (fetchError) {
+            if (fetchError.code === 'PGRST116') {
+                throw new NotFoundError("Co-host record not found.");
+            }
+            throw fetchError;
         }
 
         const { data: listing } = await supabase

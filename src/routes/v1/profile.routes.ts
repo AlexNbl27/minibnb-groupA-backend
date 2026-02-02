@@ -38,7 +38,11 @@ router.get("/me", authenticate, async (req, res, next) => {
         if (!data) throw new NotFoundError("Profile not found");
 
         new OkResponse(data).send(res);
-    } catch (error) {
+    } catch (error: any) {
+        if (error.code === 'PGRST116') {
+            next(new NotFoundError("Profile not found"));
+            return;
+        }
         next(error);
     }
 });
@@ -93,7 +97,11 @@ router.patch(
 
             if (error) throw error;
             new OkResponse(data).send(res);
-        } catch (error) {
+        } catch (error: any) {
+            if (error.code === 'PGRST116') {
+                next(new NotFoundError("Profile not found"));
+                return;
+            }
             next(error);
         }
     },
