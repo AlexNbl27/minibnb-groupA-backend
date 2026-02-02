@@ -1,4 +1,4 @@
-import { supabase } from "../config/supabase";
+import { supabase, supabaseAdmin } from "../config/supabase";
 
 export class AuthService {
     async signUp(
@@ -38,6 +38,25 @@ export class AuthService {
         const { data, error } = await supabase.auth.refreshSession({
             refresh_token: refreshToken,
         });
+
+        if (error) throw error;
+        return data;
+    }
+
+    async updatePassword(userId: string, email: string, oldPassword: string, newPassword: string) {
+        // 1. Verify old password
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password: oldPassword,
+        });
+
+        if (signInError) throw signInError;
+
+        // 2. Update password with admin client
+        const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
+            userId,
+            { password: newPassword }
+        );
 
         if (error) throw error;
         return data;
