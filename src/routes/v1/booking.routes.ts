@@ -4,7 +4,7 @@ import { validate } from "../../middlewares/validation.middleware";
 import { BookingService } from "../../services/booking.service";
 import { CacheService } from "../../services/cache.service";
 import { createBookingSchema } from "../../validators/booking.validator";
-import { sendSuccess } from "../../utils/response";
+import { CreatedResponse, OkResponse } from "../../utils/success";
 
 const router = express.Router();
 
@@ -53,16 +53,12 @@ router.get("/me", authenticate, async (req, res, next) => {
             pagination
         );
 
-        res.json({
-            success: true,
-            data: result.data,
-            meta: {
-                total: result.total,
-                page: pagination.page,
-                limit: pagination.limit,
-                totalPages: Math.ceil(result.total / pagination.limit)
-            }
-        });
+        new OkResponse(result.data, {
+            total: result.total,
+            page: pagination.page,
+            limit: pagination.limit,
+            totalPages: Math.ceil(result.total / pagination.limit)
+        }).send(res);
     } catch (error) {
         next(error);
     }
@@ -114,7 +110,7 @@ router.post(
             // Invalider cache
             await cacheService.invalidateBookingCache(req.body.listing_id);
 
-            sendSuccess(res, booking, 201);
+            new CreatedResponse(booking).send(res);
         } catch (error) {
             next(error);
         }

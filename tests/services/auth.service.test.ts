@@ -10,6 +10,15 @@ jest.mock('../../src/config/supabase', () => ({
             signOut: jest.fn(),
         },
     },
+    supabaseAdmin: {
+        from: jest.fn(() => ({
+            select: jest.fn(() => ({
+                eq: jest.fn(() => ({
+                    single: jest.fn(),
+                })),
+            })),
+        })),
+    },
 }));
 
 describe('AuthService', () => {
@@ -75,16 +84,46 @@ describe('AuthService', () => {
             expect(result).toEqual(mockData);
         });
 
-        it('should throw an error if signIn fails', async () => {
+        it('should throw an error with "Invalid password" if user exists but login fails', async () => {
             const mockError = { message: 'Invalid credentials' };
             (supabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({
                 data: null,
                 error: mockError,
             });
 
+            // Mock user existing
+            const mockSelect = jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({ data: { id: '123' }, error: null }),
+                }),
+            });
+            const { supabaseAdmin } = require('../../src/config/supabase');
+            (supabaseAdmin.from as jest.Mock).mockReturnValue({ select: mockSelect });
+
             await expect(
                 authService.signIn('test@example.com', 'badpassword')
-            ).rejects.toEqual(mockError);
+            ).rejects.toThrow('Invalid password');
+        });
+
+        it('should throw an error with "User not found" if login fails and user does not exist', async () => {
+            const mockError = { message: 'Invalid credentials' };
+            (supabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({
+                data: null,
+                error: mockError,
+            });
+
+            // Mock user NOT existing
+            const mockSelect = jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({ data: null, error: { message: 'Row not found' } }),
+                }),
+            });
+            const { supabaseAdmin } = require('../../src/config/supabase');
+            (supabaseAdmin.from as jest.Mock).mockReturnValue({ select: mockSelect });
+
+            await expect(
+                authService.signIn('nonexistent@example.com', 'pwd')
+            ).rejects.toThrow('User not found');
         });
     });
 

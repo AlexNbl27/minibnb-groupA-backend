@@ -61,7 +61,6 @@ describe('Auth Routes', () => {
             expect(response.body.success).toBe(true);
             expect(response.body.data).toEqual({
                 user: mockUser,
-                access_token: 'token'
             });
             expect(response.headers['set-cookie']).toBeDefined();
             expect(mockSignUp).toHaveBeenCalledWith(
@@ -105,7 +104,6 @@ describe('Auth Routes', () => {
             expect(response.body.success).toBe(true);
             expect(response.body.data).toEqual({
                 user: mockUser,
-                access_token: 'token'
             });
             expect(response.headers['set-cookie']).toBeDefined();
             expect(mockSignIn).toHaveBeenCalledWith('test@example.com', 'password123');

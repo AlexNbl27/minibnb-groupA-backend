@@ -1,8 +1,8 @@
 import express from "express";
 import { supabase } from "../../config/supabase";
 import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
-import { sendSuccess } from "../../utils/response";
-import { ForbiddenError } from "../../utils/errors";
+import { OkResponse } from "../../utils/success";
+import { ForbiddenError, NotFoundError } from "../../utils/errors";
 
 const router = express.Router();
 
@@ -43,8 +43,11 @@ router.delete("/:id", authenticate, async (req, res, next) => {
             .eq("id", coHostId)
             .single();
 
-        if (fetchError || !coHost) {
-            throw new ForbiddenError("Co-host record not found.");
+        if (fetchError) {
+            if (fetchError.code === 'PGRST116') {
+                throw new NotFoundError("Co-host record not found.");
+            }
+            throw fetchError;
         }
 
         const { data: listing } = await supabase
@@ -65,7 +68,7 @@ router.delete("/:id", authenticate, async (req, res, next) => {
             .eq("id", coHostId);
         if (error) throw error;
 
-        sendSuccess(res, { message: "Co-host removed" });
+        new OkResponse({ message: "Co-host removed" }).send(res);
     } catch (error) {
         next(error);
     }
