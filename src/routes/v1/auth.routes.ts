@@ -4,7 +4,7 @@ import { ConflictError } from "../../utils/errors";
 import { validate } from "../../middlewares/validation.middleware";
 import { signupSchema, loginSchema, changePasswordSchema } from "../../validators/user.validator";
 import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
-import { sendSuccess } from "../../utils/response";
+import { OkResponse } from "../../utils/sucess";
 import { UnauthorizedError } from "../../utils/errors";
 import {
   ACCESS_TOKEN_COOKIE_OPTIONS,
