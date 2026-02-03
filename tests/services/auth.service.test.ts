@@ -8,6 +8,7 @@ jest.mock('../../src/config/supabase', () => ({
             signUp: jest.fn(),
             signInWithPassword: jest.fn(),
             signOut: jest.fn(),
+            setSession: jest.fn(),
         },
     },
     supabaseAdmin: {
@@ -141,6 +142,54 @@ describe('AuthService', () => {
             (supabase.auth.signOut as jest.Mock).mockResolvedValue({ error: mockError });
 
             await expect(authService.signOut()).rejects.toEqual(mockError);
+        });
+    });
+
+    describe('verifyGoogleSession', () => {
+        it('should verify Google session successfully', async () => {
+            const mockSession = {
+                access_token: 'new_access_token',
+                refresh_token: 'new_refresh_token',
+            };
+            const mockUser = { id: '123', email: 'test@example.com' };
+            (supabase.auth.setSession as jest.Mock).mockResolvedValue({
+                data: { user: mockUser, session: mockSession },
+                error: null,
+            });
+
+            const result = await authService.verifyGoogleSession('access_token', 'refresh_token');
+
+            expect(supabase.auth.setSession).toHaveBeenCalledWith({
+                access_token: 'access_token',
+                refresh_token: 'refresh_token',
+            });
+            expect(result).toEqual({
+                user: mockUser,
+                session: mockSession,
+            });
+        });
+
+        it('should throw an error if setSession fails', async () => {
+            const mockError = { message: 'Invalid token', status: 401 };
+            (supabase.auth.setSession as jest.Mock).mockResolvedValue({
+                data: { user: null, session: null },
+                error: mockError,
+            });
+
+            await expect(
+                authService.verifyGoogleSession('invalid_token', 'invalid_refresh')
+            ).rejects.toEqual(mockError);
+        });
+
+        it('should throw an error if session is null', async () => {
+            (supabase.auth.setSession as jest.Mock).mockResolvedValue({
+                data: { user: null, session: null },
+                error: null,
+            });
+
+            await expect(
+                authService.verifyGoogleSession('access_token', 'refresh_token')
+            ).rejects.toThrow('Invalid session');
         });
     });
 });

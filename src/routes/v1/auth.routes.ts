@@ -2,7 +2,7 @@ import express from "express";
 import { AuthService } from "../../services/auth.service";
 import { ConflictError } from "../../utils/errors";
 import { validate } from "../../middlewares/validation.middleware";
-import { signupSchema, loginSchema, changePasswordSchema } from "../../validators/user.validator";
+import { signupSchema, loginSchema, changePasswordSchema, googleAuthSchema } from "../../validators/user.validator";
 import { CreatedResponse, OkResponse } from "../../utils/success";
 import { UnauthorizedError, NotFoundError } from "../../utils/errors";
 import { ACCESS_TOKEN_COOKIE_OPTIONS, REFRESH_TOKEN_COOKIE_OPTIONS, COOKIE_NAMES } from "../../config/cookies";
@@ -147,6 +147,81 @@ router.post("/login", validate(loginSchema), async (req, res, next) => {
     }
     if (error.message === "Invalid password") {
       next(new UnauthorizedError("Invalid password"));
+      return;
+    }
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /auth/google:
+ *   post:
+ *     summary: Authenticate with Google tokens
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - access_token
+ *               - refresh_token
+ *             properties:
+ *               access_token:
+ *                 type: string
+ *                 description: Supabase access token from Google OAuth
+ *               refresh_token:
+ *                 type: string
+ *                 description: Supabase refresh token from Google OAuth
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user:
+ *                       type: object
+ *                     access_token:
+ *                       type: string
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Invalid tokens
+ */
+router.post("/google", validate(googleAuthSchema), async (req, res, next) => {
+  try {
+    const { access_token, refresh_token } = req.body;
+    const data = await authService.verifyGoogleSession(access_token, refresh_token);
+
+    if (data.session?.access_token) {
+      res.cookie(
+        COOKIE_NAMES.ACCESS_TOKEN,
+        data.session.access_token,
+        ACCESS_TOKEN_COOKIE_OPTIONS
+      );
+    }
+
+    if (data.session?.refresh_token) {
+      res.cookie(
+        COOKIE_NAMES.REFRESH_TOKEN,
+        data.session.refresh_token,
+        REFRESH_TOKEN_COOKIE_OPTIONS
+      );
+    }
+
+    new OkResponse({ user: data.user, access_token: data.session.access_token }).send(res);
+  } catch (error: any) {
+    if (error.message === "Invalid session" || error.message?.toLowerCase().includes("invalid") || error.status === 401) {
+      next(new UnauthorizedError("Invalid Google session"));
       return;
     }
     next(error);
