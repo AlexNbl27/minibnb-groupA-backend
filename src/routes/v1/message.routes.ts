@@ -17,6 +17,29 @@ const messageService = new MessageService();
 
 /**
  * @swagger
+ * /conversations:
+ *   get:
+ *     summary: Get user conversations
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of conversations
+ */
+router.get("/", authenticate, async (req, res, next) => {
+    try {
+        const conversations = await messageService.getUserConversations(
+            (req as AuthRequest).user!.id
+        );
+        new OkResponse(conversations).send(res);
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * @swagger
  * /conversations/{conversationId}:
  *   get:
  *     summary: Get messages in a conversation

@@ -54,6 +54,33 @@ export class MessageService {
         };
     }
 
+    // Récupérer les conversations d'un utilisateur
+    async getUserConversations(userId: string) {
+        const { data, error } = await supabase
+            .from("conversations")
+            .select(`
+                *,
+                listing:listings(name, picture_url),
+                guest:profiles!conversations_guest_id_fkey(first_name, last_name, avatar_url),
+                host:profiles!conversations_host_id_fkey(first_name, last_name, avatar_url),
+                messages(content, created_at, sender_id)
+            `)
+            .or(`guest_id.eq.${userId},host_id.eq.${userId}`)
+            .order("created_at", { foreignTable: "messages", ascending: false })
+            .limit(1, { foreignTable: "messages" });
+
+        if (error) throw error;
+
+        return data.map((conv: any) => ({
+            ...conv,
+            last_message: conv.messages && conv.messages.length > 0 ? conv.messages[0] : null
+        })).sort((a: any, b: any) => {
+            const dateA = a.last_message ? new Date(a.last_message.created_at).getTime() : new Date(a.created_at).getTime();
+            const dateB = b.last_message ? new Date(b.last_message.created_at).getTime() : new Date(b.created_at).getTime();
+            return dateB - dateA;
+        });
+    }
+
     // Vérifier permission d'envoi
     private async checkSendPermission(
         conversationId: number,
