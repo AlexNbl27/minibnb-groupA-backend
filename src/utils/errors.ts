@@ -1,11 +1,37 @@
+import { Response } from "express";
+
+export class ErrorResponse {
+    constructor(
+        public statusCode: number,
+        public message: string,
+        public status: string = "error",
+        public errors?: any[]
+    ) { }
+
+    public send(res: Response): void {
+        res.status(this.statusCode).json({
+            success: false,
+            status: this.status,
+            message: this.message,
+            code: this.statusCode,
+            errors: this.errors,
+        });
+    }
+}
+
 export class AppError extends Error {
+    public status: string;
+    public isOperational: boolean;
+
     constructor(
         public statusCode: number,
         public message: string,
         public errors?: any[],
     ) {
         super(message);
-        this.name = this.constructor.name;
+        this.status = `${statusCode}`.startsWith("4") ? "fail" : "error";
+        this.isOperational = true;
+
         Error.captureStackTrace(this, this.constructor);
     }
 }
@@ -37,5 +63,11 @@ export class NotFoundError extends AppError {
 export class ConflictError extends AppError {
     constructor(message: string) {
         super(409, message);
+    }
+}
+
+export class InternalServerError extends AppError {
+    constructor(message: string = "Internal server error") {
+        super(500, message);
     }
 }

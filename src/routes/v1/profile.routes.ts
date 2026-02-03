@@ -3,7 +3,8 @@ import { supabase } from "../../config/supabase";
 import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validation.middleware";
 import { updateProfileSchema } from "../../validators/user.validator";
-import { sendSuccess } from "../../utils/response";
+import { OkResponse } from "../../utils/success";
+import { NotFoundError } from "../../utils/errors";
 
 const router = express.Router();
 /**
@@ -34,8 +35,14 @@ router.get("/me", authenticate, async (req, res, next) => {
             .single();
 
         if (error) throw error;
-        sendSuccess(res, data);
-    } catch (error) {
+        if (!data) throw new NotFoundError("Profile not found");
+
+        new OkResponse(data).send(res);
+    } catch (error: any) {
+        if (error.code === 'PGRST116') {
+            next(new NotFoundError("Profile not found"));
+            return;
+        }
         next(error);
     }
 });
@@ -61,6 +68,8 @@ router.get("/me", authenticate, async (req, res, next) => {
  *                 type: string
  *               avatar_url:
  *                 type: string
+ *               bio:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Profile updated
@@ -71,16 +80,28 @@ router.patch(
     validate(updateProfileSchema),
     async (req, res, next) => {
         try {
+            if (req.body.avatar_url === "" || req.body.avatarUrl === "") {
+                req.body.avatar_url = null;
+                delete req.body.avatarUrl;
+            }
+
             const { data, error } = await supabase
                 .from("profiles")
-                .update(req.body)
-                .eq("id", (req as AuthRequest).user!.id)
+                .upsert({
+                    id: (req as AuthRequest).user!.id,
+                    email: (req as AuthRequest).user!.email,
+                    ...req.body
+                })
                 .select()
                 .single();
 
             if (error) throw error;
-            sendSuccess(res, data);
-        } catch (error) {
+            new OkResponse(data).send(res);
+        } catch (error: any) {
+            if (error.code === 'PGRST116') {
+                next(new NotFoundError("Profile not found"));
+                return;
+            }
             next(error);
         }
     },

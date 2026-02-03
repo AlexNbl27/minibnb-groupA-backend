@@ -1,6 +1,7 @@
 import express from "express";
 import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validation.middleware";
+import { NotFoundError } from "../../utils/errors";
 import { cacheMiddleware } from "../../middlewares/cache.middleware";
 import { ListingService } from "../../services/listing.service";
 import { CacheService } from "../../services/cache.service";
@@ -8,7 +9,7 @@ import {
     createListingSchema,
     updateListingSchema,
 } from "../../validators/listing.validator";
-import { sendSuccess } from "../../utils/response";
+import { CreatedResponse, OkResponse } from "../../utils/success";
 
 const router = express.Router();
 /**
@@ -78,16 +79,12 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
 
         const result = await listingService.getAll(filters, pagination);
 
-        res.json({
-            success: true,
-            data: result.data,
-            meta: {
-                total: result.total,
-                page: pagination.page,
-                limit: pagination.limit,
-                totalPages: Math.ceil(result.total / pagination.limit)
-            }
-        });
+        new OkResponse(result.data, {
+            total: result.total,
+            page: pagination.page,
+            limit: pagination.limit,
+            totalPages: Math.ceil(result.total / pagination.limit)
+        }).send(res);
     } catch (error) {
         next(error);
     }
@@ -113,7 +110,7 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
 router.get("/:id", cacheMiddleware(3600), async (req, res, next) => {
     try {
         const listing = await listingService.getById(Number(req.params.id));
-        res.json({ success: true, data: listing });
+        new OkResponse(listing).send(res);
     } catch (error) {
         next(error);
     }
@@ -169,7 +166,7 @@ router.post(
             // Invalider cache
             await cacheService.invalidatePattern("cache:/api/v1/listings?*");
 
-            res.status(201).json({ success: true, data: listing });
+            new CreatedResponse(listing).send(res);
         } catch (error) {
             next(error);
         }
@@ -220,7 +217,7 @@ router.patch(
             // Invalider cache
             await cacheService.invalidateListingCache(Number(req.params.id));
 
-            res.json({ success: true, data: listing });
+            new OkResponse(listing).send(res);
         } catch (error) {
             next(error);
         }
@@ -256,7 +253,7 @@ router.delete("/:id", authenticate, async (req, res, next) => {
         // Invalider cache
         await cacheService.invalidateListingCache(Number(req.params.id));
 
-        res.json({ success: true, message: "Listing deleted" });
+        new OkResponse({ message: "Listing deleted" }).send(res);
     } catch (error) {
         next(error);
     }
@@ -307,16 +304,12 @@ router.get("/:id/bookings", authenticate, async (req, res, next) => {
             pagination
         );
 
-        res.json({
-            success: true,
-            data: result.data,
-            meta: {
-                total: result.total,
-                page: pagination.page,
-                limit: pagination.limit,
-                totalPages: Math.ceil(result.total / pagination.limit)
-            }
-        });
+        new OkResponse(result.data, {
+            total: result.total,
+            page: pagination.page,
+            limit: pagination.limit,
+            totalPages: Math.ceil(result.total / pagination.limit)
+        }).send(res);
     } catch (error) {
         next(error);
     }
@@ -389,8 +382,12 @@ router.post("/:id/cohosts", authenticate, async (req, res, next) => {
             .single();
 
         if (error) throw error;
-        sendSuccess(res, data, 201);
-    } catch (error) {
+        new CreatedResponse(data).send(res);
+    } catch (error: any) {
+        if (error.code === 'PGRST116') {
+            next(new NotFoundError("Listing not found"));
+            return;
+        }
         next(error);
     }
 });
