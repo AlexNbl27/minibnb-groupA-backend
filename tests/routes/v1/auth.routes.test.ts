@@ -60,6 +60,7 @@ describe('Auth Routes', () => {
             expect(response.status).toBe(201);
             expect(response.body.success).toBe(true);
             expect(response.body.data).toEqual({
+                access_token: 'token',
                 user: mockUser,
             });
             expect(response.headers['set-cookie']).toBeDefined();
@@ -103,6 +104,7 @@ describe('Auth Routes', () => {
             expect(response.status).toBe(200);
             expect(response.body.success).toBe(true);
             expect(response.body.data).toEqual({
+                access_token: 'token',
                 user: mockUser,
             });
             expect(response.headers['set-cookie']).toBeDefined();
