@@ -13,6 +13,8 @@ jest.mock('../../../src/config/supabase', () => ({
     },
 }));
 
+jest.mock('../../../src/config/redis');
+
 // 2. Mock Auth Middleware
 jest.mock('../../../src/middlewares/auth.middleware', () => ({
     authenticate: (req: any, res: any, next: any) => {

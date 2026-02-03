@@ -9,6 +9,8 @@ const mockRefreshSession = jest.fn();
 const mockUpdatePassword = jest.fn();
 const mockVerifyGoogleSession = jest.fn();
 
+jest.mock('../../../src/config/redis');
+
 // Mock Auth Middleware
 jest.mock('../../../src/middlewares/auth.middleware', () => ({
     authenticate: (req: any, res: any, next: any) => {

@@ -19,10 +19,12 @@ jest.mock('../../../src/services/booking.service', () => {
 jest.mock('../../../src/services/cache.service', () => {
     return {
         CacheService: jest.fn().mockImplementation(() => ({
-            invalidateBookingCache: mockInvalidateCache,
+            invalidateListingCache: mockInvalidateCache,
         })),
     };
 });
+
+jest.mock('../../../src/config/redis');
 
 // Mock Auth Middleware
 jest.mock('../../../src/middlewares/auth.middleware', () => ({

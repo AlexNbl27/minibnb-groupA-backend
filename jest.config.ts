@@ -11,8 +11,8 @@ const config: Config = {
     verbose: true,
     forceExit: true,
     clearMocks: true,
-    resetMocks: true,
-    restoreMocks: true,
+    resetMocks: false,
+    restoreMocks: false,
 };
 
 export default config;
