@@ -25,6 +25,40 @@ const router = express.Router();
  *     responses:
  *       200:
  *         description: Profile details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       format: uuid
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                     first_name:
+ *                       type: string
+ *                     last_name:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                     avatar_url:
+ *                       type: string
+ *                     bio:
+ *                       type: string
+ *                     is_host:
+ *                       type: boolean
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
  */
 router.get("/me", authenticate, async (req, res, next) => {
     try {
@@ -70,9 +104,45 @@ router.get("/me", authenticate, async (req, res, next) => {
  *                 type: string
  *               bio:
  *                 type: string
+ *               phone:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Profile updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       format: uuid
+ *                     email:
+ *                       type: string
+ *                       format: email
+ *                     first_name:
+ *                       type: string
+ *                     last_name:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                     avatar_url:
+ *                       type: string
+ *                     bio:
+ *                       type: string
+ *                     is_host:
+ *                       type: boolean
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
  */
 router.patch(
     "/me",

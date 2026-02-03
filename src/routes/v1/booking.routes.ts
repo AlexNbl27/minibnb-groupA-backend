@@ -40,6 +40,50 @@ const cacheService = new CacheService();
  *     responses:
  *       200:
  *         description: List of user bookings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       listing_id:
+ *                         type: integer
+ *                       guest_id:
+ *                         type: string
+ *                         format: uuid
+ *                       check_in:
+ *                         type: string
+ *                         format: date
+ *                       check_out:
+ *                         type: string
+ *                         format: date
+ *                       total_price:
+ *                         type: integer
+ *                       guest_count:
+ *                         type: integer
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ *                       listing:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           name:
+ *                             type: string
+ *                           picture_url:
+ *                             type: string
  */
 router.get("/me", authenticate, async (req, res, next) => {
     try {
@@ -81,20 +125,46 @@ router.get("/me", authenticate, async (req, res, next) => {
  *             type: object
  *             required:
  *               - listing_id
- *               - start_date
- *               - end_date
+ *               - check_in
+ *               - check_out
  *             properties:
  *               listing_id:
  *                 type: integer
- *               start_date:
+ *               check_in:
  *                 type: string
  *                 format: date
- *               end_date:
+ *               check_out:
  *                 type: string
  *                 format: date
+ *               guest_count:
+ *                 type: integer
  *     responses:
  *       201:
  *         description: Booking created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     listing_id:
+ *                       type: integer
+ *                     check_in:
+ *                       type: string
+ *                       format: date
+ *                     check_out:
+ *                       type: string
+ *                       format: date
+ *                     total_price:
+ *                       type: integer
+ *                     guest_count:
+ *                       type: integer
  */
 router.post(
     "/",
