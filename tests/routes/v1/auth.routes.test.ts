@@ -7,6 +7,7 @@ const mockSignIn = jest.fn();
 const mockSignOut = jest.fn();
 const mockRefreshSession = jest.fn();
 const mockUpdatePassword = jest.fn();
+const mockVerifyGoogleSession = jest.fn();
 
 // Mock Auth Middleware
 jest.mock('../../../src/middlewares/auth.middleware', () => ({
@@ -25,6 +26,7 @@ jest.mock('../../../src/services/auth.service', () => {
                 signOut: mockSignOut,
                 refreshSession: mockRefreshSession,
                 updatePassword: mockUpdatePassword,
+                verifyGoogleSession: mockVerifyGoogleSession,
             };
         }),
     };
@@ -169,6 +171,59 @@ describe('Auth Routes', () => {
                 });
 
             expect(response.status).toBe(401);
+        });
+    });
+
+    describe('POST /api/v1/auth/google', () => {
+        it('should login with google tokens successfully', async () => {
+            const mockUser = { id: '1', email: 'test@example.com' };
+            const mockSession = { access_token: 'new_token', refresh_token: 'new_refresh' };
+
+            mockVerifyGoogleSession.mockResolvedValue({
+                user: mockUser,
+                session: mockSession
+            });
+
+            const response = await request(app)
+                .post('/api/v1/auth/google')
+                .send({
+                    access_token: 'google_access',
+                    refresh_token: 'google_refresh'
+                });
+
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.data).toEqual({
+                user: mockUser,
+                access_token: 'new_token'
+            });
+            expect(response.headers['set-cookie']).toBeDefined();
+            expect(mockVerifyGoogleSession).toHaveBeenCalledWith('google_access', 'google_refresh');
+        });
+
+        it('should fail with invalid google tokens', async () => {
+            mockVerifyGoogleSession.mockRejectedValue(new Error('Invalid Google session'));
+
+            const response = await request(app)
+                .post('/api/v1/auth/google')
+                .send({
+                    access_token: 'invalid',
+                    refresh_token: 'invalid'
+                });
+
+            expect(response.status).toBe(401);
+        });
+
+        it('should validate input parameters', async () => {
+            const response = await request(app)
+                .post('/api/v1/auth/google')
+                .send({
+                    access_token: 'only_access_token'
+                    // missing refresh_token
+                });
+
+            expect(response.status).toBe(400);
+            expect(mockVerifyGoogleSession).not.toHaveBeenCalled();
         });
     });
 });
