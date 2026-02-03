@@ -5,11 +5,7 @@ import { validate } from "../../middlewares/validation.middleware";
 import { signupSchema, loginSchema, changePasswordSchema } from "../../validators/user.validator";
 import { CreatedResponse, OkResponse } from "../../utils/success";
 import { UnauthorizedError, NotFoundError } from "../../utils/errors";
-import {
-  ACCESS_TOKEN_COOKIE_OPTIONS,
-  REFRESH_TOKEN_COOKIE_OPTIONS,
-  COOKIE_NAMES,
-} from "../../config/cookies";
+import { ACCESS_TOKEN_COOKIE_OPTIONS, REFRESH_TOKEN_COOKIE_OPTIONS, COOKIE_NAMES } from "../../config/cookies";
 import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 
 const router = express.Router();
@@ -69,35 +65,23 @@ const authService = new AuthService();
 router.post("/signup", validate(signupSchema), async (req, res, next) => {
   try {
     const { email, password, first_name, last_name } = req.body;
-    const data = await authService.signUp(
-      email,
-      password,
-      first_name,
-      last_name,
-    );
+    const data = await authService.signUp(email, password, first_name, last_name);
 
     if (data.session?.access_token) {
-      res.cookie(
-        COOKIE_NAMES.ACCESS_TOKEN,
-        data.session.access_token,
-        ACCESS_TOKEN_COOKIE_OPTIONS
-      );
+      res.cookie(COOKIE_NAMES.ACCESS_TOKEN, data.session.access_token, ACCESS_TOKEN_COOKIE_OPTIONS);
     }
 
     if (data.session?.refresh_token) {
-      res.cookie(
-        COOKIE_NAMES.REFRESH_TOKEN,
-        data.session.refresh_token,
-        REFRESH_TOKEN_COOKIE_OPTIONS
-      );
+      res.cookie(COOKIE_NAMES.REFRESH_TOKEN, data.session.refresh_token, REFRESH_TOKEN_COOKIE_OPTIONS);
     }
 
-    new CreatedResponse({ user: data.user }).send(res);
+    new CreatedResponse({
+      user: data.user,
+      access_token: data.session?.access_token,
+      refresh_token: data.session?.refresh_token,
+    }).send(res);
   } catch (error: any) {
-    if (
-      error.message === "User already registered" ||
-      error.code === "user_already_exists"
-    ) {
+    if (error.message === "User already registered" || error.code === "user_already_exists") {
       next(new ConflictError("User already exists"));
       return;
     }
@@ -144,22 +128,18 @@ router.post("/login", validate(loginSchema), async (req, res, next) => {
     const data = await authService.signIn(email, password);
 
     if (data.session?.access_token) {
-      res.cookie(
-        COOKIE_NAMES.ACCESS_TOKEN,
-        data.session.access_token,
-        ACCESS_TOKEN_COOKIE_OPTIONS
-      );
+      res.cookie(COOKIE_NAMES.ACCESS_TOKEN, data.session.access_token, ACCESS_TOKEN_COOKIE_OPTIONS);
     }
 
     if (data.session?.refresh_token) {
-      res.cookie(
-        COOKIE_NAMES.REFRESH_TOKEN,
-        data.session.refresh_token,
-        REFRESH_TOKEN_COOKIE_OPTIONS
-      );
+      res.cookie(COOKIE_NAMES.REFRESH_TOKEN, data.session.refresh_token, REFRESH_TOKEN_COOKIE_OPTIONS);
     }
 
-    new OkResponse({ user: data.user }).send(res);
+    new OkResponse({
+      user: data.user,
+      access_token: data.session?.access_token,
+      refresh_token: data.session?.refresh_token,
+    }).send(res);
   } catch (error: any) {
     if (error.message === "User not found") {
       next(new NotFoundError("User not found"));
@@ -218,22 +198,18 @@ router.post("/refresh", async (req, res, next) => {
     const data = await authService.refreshSession(refreshToken);
 
     if (data.session?.access_token) {
-      res.cookie(
-        COOKIE_NAMES.ACCESS_TOKEN,
-        data.session.access_token,
-        ACCESS_TOKEN_COOKIE_OPTIONS
-      );
+      res.cookie(COOKIE_NAMES.ACCESS_TOKEN, data.session.access_token, ACCESS_TOKEN_COOKIE_OPTIONS);
     }
 
     if (data.session?.refresh_token) {
-      res.cookie(
-        COOKIE_NAMES.REFRESH_TOKEN,
-        data.session.refresh_token,
-        REFRESH_TOKEN_COOKIE_OPTIONS
-      );
+      res.cookie(COOKIE_NAMES.REFRESH_TOKEN, data.session.refresh_token, REFRESH_TOKEN_COOKIE_OPTIONS);
     }
 
-    new OkResponse({ user: data.user }).send(res);
+    new OkResponse({
+      user: data.user,
+      access_token: data.session?.access_token,
+      refresh_token: data.session?.refresh_token,
+    }).send(res);
   } catch (error: any) {
     if (error.message === "Invalid Refresh Token" || error.message === "Refresh Token Not Found") {
       next(new UnauthorizedError("Invalid or expired refresh token"));
@@ -274,27 +250,21 @@ router.post("/refresh", async (req, res, next) => {
  *       401:
  *         description: Invalid old password
  */
-router.post(
-  "/change-password",
-  authenticate,
-  validate(changePasswordSchema),
-  async (req, res, next) => {
-    try {
-      const { old_password, new_password } = req.body;
-      const { id, email } = (req as AuthRequest).user!;
+router.post("/change-password", authenticate, validate(changePasswordSchema), async (req, res, next) => {
+  try {
+    const { old_password, new_password } = req.body;
+    const { id, email } = (req as AuthRequest).user!;
 
-      await authService.updatePassword(id, email, old_password, new_password);
+    await authService.updatePassword(id, email, old_password, new_password);
 
-      new OkResponse({ message: "Password updated successfully" }).send(res);
-    } catch (error: any) {
-      if (error.message === "Invalid login credentials") {
-        next(new UnauthorizedError("Invalid old password"));
-        return;
-      }
-      next(error);
+    new OkResponse({ message: "Password updated successfully" }).send(res);
+  } catch (error: any) {
+    if (error.message === "Invalid login credentials") {
+      next(new UnauthorizedError("Invalid old password"));
+      return;
     }
+    next(error);
   }
-);
-
+});
 
 export default router;
