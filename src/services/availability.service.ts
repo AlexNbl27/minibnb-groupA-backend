@@ -19,14 +19,14 @@ export const getAvailability = async ({
 }: AvailabilityQuery) => {
     // 1. Default dates if not provided
     const start = startDate ? new Date(startDate) : new Date();
-    const end = endDate ? new Date(endDate) : new Date();
+    const end = endDate ? new Date(endDate) : new Date(start.getTime());
 
     if (!startDate) {
         // If not provided, start is today (already set)
     }
 
     if (!endDate) {
-        // Default +3 months
+        // Default +3 months from start
         end.setMonth(end.getMonth() + 3);
     }
 
@@ -60,7 +60,7 @@ export const getAvailability = async ({
     // .not('check_out', 'lt', startStr) is equivalent to check_out >= startStr
 
     if (bookingsError) {
-        throw new Error("Failed to fetch bookings");
+        throw bookingsError;
     }
 
     const bookedPeriods: BookedPeriod[] = (bookings || []).map((b) => ({

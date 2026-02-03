@@ -120,7 +120,11 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
         // Parse comma-separated values into arrays
         const parseArray = (value: unknown): string[] | undefined => {
             if (typeof value === "string" && value.trim()) {
-                return value.split(",").map((v) => v.trim());
+                const items = value
+                    .split(",")
+                    .map((v) => v.trim())
+                    .filter((v) => v.length > 0);
+                return items.length > 0 ? items : undefined;
             }
             return undefined;
         };

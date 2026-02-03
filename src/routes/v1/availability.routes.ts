@@ -3,7 +3,7 @@ import { validate } from "../../middlewares/validation.middleware";
 import { cacheMiddleware as cache } from "../../middlewares/cache.middleware";
 import { getAvailabilitySchema } from "../../validators/availability.validator";
 import * as availabilityService from "../../services/availability.service";
-import { SuccessResponse, OkResponse } from "../../utils/success";
+import { OkResponse } from "../../utils/success";
 
 const router = Router();
 
