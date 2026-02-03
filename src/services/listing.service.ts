@@ -33,6 +33,10 @@ export class ListingService {
             min_price?: number;
             max_price?: number;
             guests?: number;
+            q?: string;
+            host_id?: string;
+            check_in?: string;
+            check_out?: string;
         },
         pagination: { page: number; limit: number } = { page: 1, limit: 10 },
     ): Promise<{ data: Listing[]; total: number }> {
@@ -52,6 +56,29 @@ export class ListingService {
         }
         if (filters?.guests) {
             query = query.gte("max_guests", filters.guests);
+        }
+        if (filters?.host_id) {
+            query = query.eq("host_id", filters.host_id);
+        }
+        if (filters?.q) {
+            query = query.or(`name.ilike.%${filters.q}%,description.ilike.%${filters.q}%`);
+        }
+
+        // Filtrage par dates (disponibilité)
+        if (filters?.check_in && filters?.check_out) {
+            const checkIn = filters.check_in;
+            const checkOut = filters.check_out;
+
+            // Trouver les listings occupés
+            const { data: busyListings } = await supabase
+                .from("bookings")
+                .select("listing_id")
+                .or(`and(check_in.lte.${checkOut},check_out.gte.${checkIn})`);
+
+            if (busyListings && busyListings.length > 0) {
+                const busyIds = busyListings.map((b) => b.listing_id);
+                query = query.not("id", "in", `(${busyIds.join(",")})`);
+            }
         }
 
         const from = (pagination.page - 1) * pagination.limit;

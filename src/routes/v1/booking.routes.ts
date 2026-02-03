@@ -108,7 +108,7 @@ router.post(
             );
 
             // Invalider cache
-            await cacheService.invalidateBookingCache(req.body.listing_id);
+            await cacheService.invalidateListingCache(req.body.listing_id);
 
             new CreatedResponse(booking).send(res);
         } catch (error) {
@@ -116,5 +116,36 @@ router.post(
         }
     },
 );
+
+
+// DELETE /api/v1/bookings/:id
+/**
+ * @swagger
+ * /bookings/{id}:
+ *   delete:
+ *     summary: Cancel a booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Booking cancelled
+ */
+router.delete("/:id", authenticate, async (req, res, next) => {
+    try {
+        const bookingId = Number(req.params.id);
+        const listingId = await bookingService.delete(bookingId, (req as AuthRequest).user!.id);
+        await cacheService.invalidateListingCache(listingId);
+        new OkResponse({ message: "Booking cancelled" }).send(res);
+    } catch (error) {
+        next(error);
+    }
+});
 
 export default router;

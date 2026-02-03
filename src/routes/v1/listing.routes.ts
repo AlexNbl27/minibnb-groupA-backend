@@ -1,7 +1,6 @@
 import express from "express";
 import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validation.middleware";
-import { NotFoundError } from "../../utils/errors";
 import { cacheMiddleware } from "../../middlewares/cache.middleware";
 import { ListingService } from "../../services/listing.service";
 import { CacheService } from "../../services/cache.service";
@@ -46,6 +45,26 @@ const cacheService = new CacheService();
  *         schema:
  *           type: integer
  *       - in: query
+ *         name: q
+ *         description: Search query (searches in name and description)
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: host_id
+ *         description: Filter listings by host ID
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: check_in
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: check_out
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
  *         name: page
  *         schema:
  *           type: integer
@@ -70,6 +89,10 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
                 ? Number(req.query.max_price)
                 : undefined,
             guests: req.query.guests ? Number(req.query.guests) : undefined,
+            q: req.query.q as string,
+            host_id: req.query.host_id as string,
+            check_in: req.query.check_in as string,
+            check_out: req.query.check_out as string,
         };
 
         const pagination = {
@@ -311,83 +334,6 @@ router.get("/:id/bookings", authenticate, async (req, res, next) => {
             totalPages: Math.ceil(result.total / pagination.limit)
         }).send(res);
     } catch (error) {
-        next(error);
-    }
-});
-
-import { supabase } from "../../config/supabase";
-import { ForbiddenError } from "../../utils/errors";
-
-/**
- * @swagger
- * /listings/{id}/cohosts:
- *   post:
- *     summary: Add a co-host to a listing
- *     tags: [Listings]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - co_host_id
- *             properties:
- *               co_host_id:
- *                 type: string
- *               can_edit_listing:
- *                 type: boolean
- *               can_access_messages:
- *                 type: boolean
- *               can_respond_messages:
- *                 type: boolean
- *     responses:
- *       201:
- *         description: Co-host added
- */
-router.post("/:id/cohosts", authenticate, async (req, res, next) => {
-    try {
-        const listingId = Number(req.params.id);
-        const userId = (req as AuthRequest).user!.id;
-        const { co_host_id } = req.body;
-
-        const { data: listing } = await supabase
-            .from("listings")
-            .select("host_id")
-            .eq("id", listingId)
-            .single();
-        if (listing?.host_id !== userId) {
-            throw new ForbiddenError("Only host can add co-hosts");
-        }
-
-        const { data, error } = await supabase
-            .from("co_hosts")
-            .insert({
-                listing_id: listingId,
-                host_id: userId,
-                co_host_id: co_host_id,
-                can_edit_listing: req.body.can_edit_listing || false,
-                can_access_messages: req.body.can_access_messages || false,
-                can_respond_messages: req.body.can_respond_messages || false,
-            })
-            .select()
-            .single();
-
-        if (error) throw error;
-        new CreatedResponse(data).send(res);
-    } catch (error: any) {
-        if (error.code === 'PGRST116') {
-            next(new NotFoundError("Listing not found"));
-            return;
-        }
         next(error);
     }
 });

@@ -147,4 +147,44 @@ export class BookingService {
 
         return !!coHost;
     }
+
+    async delete(bookingId: number, userId: string): Promise<number> {
+        const { data: booking, error: fetchError } = await supabase
+            .from("bookings")
+            .select("listing_id, guest_id")
+            .eq("id", bookingId)
+            .single();
+
+        if (fetchError || !booking) {
+            throw new NotFoundError("Booking not found");
+        }
+
+        let canDelete = false;
+        if (booking.guest_id === userId) {
+            canDelete = true;
+        } else {
+            const { data: listing } = await supabase
+                .from("listings")
+                .select("host_id")
+                .eq("id", booking.listing_id)
+                .single();
+
+            if (listing?.host_id === userId) {
+                canDelete = true;
+            }
+        }
+
+        if (!canDelete) {
+            throw new ForbiddenError("You do not have permission to cancel this booking");
+        }
+
+        const { error } = await supabase
+            .from("bookings")
+            .delete()
+            .eq("id", bookingId);
+
+        if (error) throw error;
+
+        return booking.listing_id;
+    }
 }
