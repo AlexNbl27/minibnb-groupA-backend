@@ -1,4 +1,4 @@
-import { supabase } from "../config/supabase";
+import { supabase, supabaseAdmin } from "../config/supabase";
 import { Message } from "../types/message.types";
 import { ForbiddenError, NotFoundError } from "../utils/errors";
 
@@ -13,7 +13,7 @@ export class MessageService {
         // Vérifier permission
         await this.checkSendPermission(conversationId, userId);
 
-        const { data: message, error } = await supabase
+        const { data: message, error } = await supabaseAdmin
             .from("messages")
             .insert({
                 conversation_id: conversationId,
@@ -25,6 +25,62 @@ export class MessageService {
 
         if (error) throw error;
         return message;
+    }
+
+    // Créer ou récupérer une conversation
+    async createConversation(
+        guestId: string,
+        listingId: number,
+        message?: string
+    ): Promise<any> {
+        // 1. Vérifier si une conversation existe déjà
+        const { data: existingConversation } = await supabase
+            .from("conversations")
+            .select("id")
+            .eq("guest_id", guestId)
+            .eq("listing_id", listingId)
+            .single();
+
+        if (existingConversation) {
+            // Si message fourni, l'envoyer
+            if (message) {
+                await this.send(guestId, existingConversation.id, message);
+            }
+            return existingConversation;
+        }
+
+        // 2. Si non, récupérer l'hôte du listing
+        const { data: listing } = await supabase
+            .from("listings")
+            .select("host_id")
+            .eq("id", listingId)
+            .single();
+
+        if (!listing) throw new NotFoundError("Listing not found");
+
+        if (listing.host_id === guestId) {
+            throw new ForbiddenError("You cannot contact yourself");
+        }
+
+        // 3. Créer la conversation (Utilisation de supabaseAdmin pour contourner RLS)
+        const { data: newConversation, error } = await supabaseAdmin
+            .from("conversations")
+            .insert({
+                listing_id: listingId,
+                guest_id: guestId,
+                host_id: listing.host_id
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // 4. Envoyer le message initial si présent
+        if (message) {
+            await this.send(guestId, newConversation.id, message);
+        }
+
+        return newConversation;
     }
 
     // Récupérer les messages d'une conversation
@@ -54,12 +110,41 @@ export class MessageService {
         };
     }
 
+    // Récupérer les conversations d'un utilisateur
+    async getUserConversations(userId: string) {
+        // Utilisation de supabaseAdmin car RLS bloque les SELECT sur conversations
+        const { data, error } = await supabaseAdmin
+            .from("conversations")
+            .select(`
+                *,
+                listing:listings(name, picture_url),
+                guest:profiles!conversations_guest_id_fkey(first_name, last_name, avatar_url),
+                host:profiles!conversations_host_id_fkey(first_name, last_name, avatar_url),
+                messages(content, created_at, sender_id)
+            `)
+            .or(`guest_id.eq.${userId},host_id.eq.${userId}`)
+            .order("created_at", { foreignTable: "messages", ascending: false })
+            .limit(1, { foreignTable: "messages" });
+
+        if (error) throw error;
+
+        return data.map((conv: any) => ({
+            ...conv,
+            last_message: conv.messages && conv.messages.length > 0 ? conv.messages[0] : null
+        })).sort((a: any, b: any) => {
+            const dateA = a.last_message ? new Date(a.last_message.created_at).getTime() : new Date(a.created_at).getTime();
+            const dateB = b.last_message ? new Date(b.last_message.created_at).getTime() : new Date(b.created_at).getTime();
+            return dateB - dateA;
+        });
+    }
+
     // Vérifier permission d'envoi
     private async checkSendPermission(
         conversationId: number,
         userId: string,
     ): Promise<void> {
-        const { data: conversation } = await supabase
+        // Utilisation de supabaseAdmin car RLS bloque les SELECT sur conversations
+        const { data: conversation } = await supabaseAdmin
             .from("conversations")
             .select("guest_id, host_id, listing_id")
             .eq("id", conversationId)
@@ -93,7 +178,8 @@ export class MessageService {
         conversationId: number,
         userId: string,
     ): Promise<void> {
-        const { data: conversation } = await supabase
+        // Utilisation de supabaseAdmin car RLS bloque les SELECT sur conversations
+        const { data: conversation } = await supabaseAdmin
             .from("conversations")
             .select("guest_id, host_id, listing_id")
             .eq("id", conversationId)

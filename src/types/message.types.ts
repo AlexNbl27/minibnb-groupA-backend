@@ -5,3 +5,13 @@ export interface Message {
     content: string;
     created_at: string;
 }
+
+export interface Conversation {
+    id: number;
+    listing_id: number;
+    booking_id: number | null;
+    guest_id: string;
+    host_id: string;
+    created_at: string;
+    updated_at: string;
+}
