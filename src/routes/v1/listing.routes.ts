@@ -172,6 +172,112 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
     }
 });
 
+// GET /api/v1/listings/me (Host listings)
+/**
+ * @swagger
+ * /listings/me:
+ *   get:
+ *     summary: Get current user listings (including inactive)
+ *     tags: [Listings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: List of user listings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       host_id:
+ *                         type: string
+ *                         format: uuid
+ *                       name:
+ *                         type: string
+ *                       description:
+ *                         type: string
+ *                       picture_url:
+ *                         type: string
+ *                       price:
+ *                         type: integer
+ *                       address:
+ *                         type: string
+ *                       city:
+ *                         type: string
+ *                       postal_code:
+ *                         type: string
+ *                       neighbourhood_group_cleansed:
+ *                         type: string
+ *                       bedrooms:
+ *                         type: integer
+ *                       beds:
+ *                         type: integer
+ *                       bathrooms:
+ *                         type: number
+ *                       max_guests:
+ *                         type: integer
+ *                       property_type:
+ *                         type: string
+ *                       rules:
+ *                         type: string
+ *                       amenities:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                       review_scores_value:
+ *                         type: number
+ *                       is_active:
+ *                         type: boolean
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ */
+router.get("/me", authenticate, async (req, res, next) => {
+    try {
+        const pagination = {
+            page: req.query.page ? Number(req.query.page) : 1,
+            limit: req.query.limit ? Number(req.query.limit) : 10,
+        };
+
+        const result = await listingService.getByUser(
+            (req as AuthRequest).user!.id,
+            pagination
+        );
+
+        new OkResponse(result.data, {
+            total: result.total,
+            page: pagination.page,
+            limit: pagination.limit,
+            totalPages: Math.ceil(result.total / pagination.limit)
+        }).send(res);
+    } catch (error) {
+        next(error);
+    }
+});
+
 // GET /api/v1/listings/:id (avec cache 1h)
 /**
  * @swagger
