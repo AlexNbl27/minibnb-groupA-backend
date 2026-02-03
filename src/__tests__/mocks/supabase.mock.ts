@@ -15,6 +15,7 @@ export const mockSupabaseAdmin = {
     contains: jest.fn().mockReturnThis(),
     overlaps: jest.fn().mockReturnThis(),
     in: jest.fn().mockReturnThis(),
+    not: jest.fn().mockReturnThis(),
 };
 
 export const mockSupabase = {
@@ -37,6 +38,7 @@ export const mockSupabase = {
     contains: jest.fn().mockReturnThis(),
     overlaps: jest.fn().mockReturnThis(),
     in: jest.fn().mockReturnThis(),
+    not: jest.fn().mockReturnThis(),
 };
 
 

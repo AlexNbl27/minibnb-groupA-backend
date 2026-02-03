@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Helper to check if a date string represents a valid calendar date (UTC-based)
 const isValidDateString = (value: string): boolean => {
     const parts = value.split("-");
     if (parts.length !== 3) {
@@ -20,37 +21,27 @@ const isValidDateString = (value: string): boolean => {
     );
 };
 
+const dateSchema = z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Format YYYY-MM-DD")
+    .refine(isValidDateString, { message: "Invalid calendar date" });
+
 export const getAvailabilitySchema = z.object({
     params: z.object({
         listingId: z.string().regex(/^\d+$/, "Listing ID must be a number"),
     }),
     query: z
         .object({
-            start_date: z
-                .string()
-                .regex(/^\d{4}-\d{2}-\d{2}$/, "Format YYYY-MM-DD")
-                .refine(isValidDateString, { message: "Invalid calendar date" })
-                .optional(),
-            end_date: z
-                .string()
-                .regex(/^\d{4}-\d{2}-\d{2}$/, "Format YYYY-MM-DD")
-                .refine(isValidDateString, { message: "Invalid calendar date" })
-                .optional(),
+            start_date: dateSchema.optional(),
+            end_date: dateSchema.optional(),
         })
         .refine(
             (data) => {
-                if (!data.start_date || !data.end_date) {
-                    return true;
+                if (data.start_date && data.end_date) {
+                    return new Date(data.end_date) >= new Date(data.start_date);
                 }
-                const [startYear, startMonth, startDay] = data.start_date.split("-").map(Number);
-                const [endYear, endMonth, endDay] = data.end_date.split("-").map(Number);
-                const start = new Date(Date.UTC(startYear, startMonth - 1, startDay));
-                const end = new Date(Date.UTC(endYear, endMonth - 1, endDay));
-                return end.getTime() >= start.getTime();
+                return true;
             },
-            {
-                message: "end_date must be on or after start_date",
-                path: ["end_date"],
-            }
+            { message: "end_date must be >= start_date", path: ["end_date"] }
         ),
 });
