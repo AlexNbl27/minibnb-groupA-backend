@@ -65,6 +65,43 @@ const cacheService = new CacheService();
  *           type: string
  *           format: date
  *       - in: query
+ *         name: property_type
+ *         description: Exact property type (e.g., "Entire home")
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: property_types
+ *         description: Multiple property types, comma-separated
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: amenities
+ *         description: Required amenities, comma-separated (ALL must match)
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: amenities_any
+ *         description: Optional amenities, comma-separated (ANY must match)
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: min_bedrooms
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: min_beds
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: min_bathrooms
+ *         schema:
+ *           type: number
+ *       - in: query
+ *         name: min_rating
+ *         description: Minimum rating (0-5)
+ *         schema:
+ *           type: number
+ *       - in: query
  *         name: page
  *         schema:
  *           type: integer
@@ -80,6 +117,14 @@ const cacheService = new CacheService();
  */
 router.get("/", cacheMiddleware(300), async (req, res, next) => {
     try {
+        // Parse comma-separated values into arrays
+        const parseArray = (value: unknown): string[] | undefined => {
+            if (typeof value === "string" && value.trim()) {
+                return value.split(",").map((v) => v.trim());
+            }
+            return undefined;
+        };
+
         const filters = {
             city: req.query.city as string,
             min_price: req.query.min_price
@@ -93,6 +138,23 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
             host_id: req.query.host_id as string,
             check_in: req.query.check_in as string,
             check_out: req.query.check_out as string,
+            // Filtres avancés
+            property_type: req.query.property_type as string,
+            property_types: parseArray(req.query.property_types),
+            amenities: parseArray(req.query.amenities),
+            amenities_any: parseArray(req.query.amenities_any),
+            min_bedrooms: req.query.min_bedrooms
+                ? Number(req.query.min_bedrooms)
+                : undefined,
+            min_beds: req.query.min_beds
+                ? Number(req.query.min_beds)
+                : undefined,
+            min_bathrooms: req.query.min_bathrooms
+                ? Number(req.query.min_bathrooms)
+                : undefined,
+            min_rating: req.query.min_rating
+                ? Number(req.query.min_rating)
+                : undefined,
         };
 
         const pagination = {
