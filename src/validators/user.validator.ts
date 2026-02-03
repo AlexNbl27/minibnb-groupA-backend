@@ -32,3 +32,10 @@ export const updateProfileSchema = z.object({
         bio: z.string().max(500).optional(),
     }),
 });
+
+export const googleAuthSchema = z.object({
+    body: z.object({
+        access_token: z.string(),
+        refresh_token: z.string(),
+    }),
+});
