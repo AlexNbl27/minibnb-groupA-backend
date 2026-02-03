@@ -13,7 +13,7 @@ export class MessageService {
         // Vérifier permission
         await this.checkSendPermission(conversationId, userId);
 
-        const { data: message, error } = await supabase
+        const { data: message, error } = await supabaseAdmin
             .from("messages")
             .insert({
                 conversation_id: conversationId,
