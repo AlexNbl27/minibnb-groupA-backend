@@ -40,6 +40,44 @@ router.get("/", authenticate, async (req, res, next) => {
 
 /**
  * @swagger
+ * /conversations:
+ *   post:
+ *     summary: Create or get a conversation
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - listing_id
+ *             properties:
+ *               listing_id:
+ *                 type: integer
+ *               message:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Conversation created or retrieved
+ */
+router.post("/", authenticate, async (req, res, next) => {
+    try {
+        const conversation = await messageService.createConversation(
+            (req as AuthRequest).user!.id,
+            req.body.listing_id,
+            req.body.message
+        );
+        new CreatedResponse(conversation).send(res);
+    } catch (error) {
+        next(error);
+    }
+});
+
+/**
+ * @swagger
  * /conversations/{conversationId}:
  *   get:
  *     summary: Get messages in a conversation

@@ -1,0 +1,6 @@
+conversation_id,sender_id,content,created_at
+1,23a73680-342c-49d5-bf33-46875adb4e72,"Bonjour, je suis intéressé par votre logement. Est-il disponible pour le week-end prochain ?","2026-02-03 14:00:00+00"
+1,41373abd-051f-481e-981e-0153d796cbe2,"Bonjour Vincent ! Oui, le logement est libre. Vous seriez combien de personnes ?","2026-02-03 14:15:00+00"
+1,23a73680-342c-49d5-bf33-46875adb4e72,"Nous serons deux. C'est parfait pour nous.","2026-02-03 14:20:00+00"
+1,41373abd-051f-481e-981e-0153d796cbe2,"Super ! N'hésitez pas si vous avez d'autres questions. Je vous laisse procéder à la réservation.","2026-02-03 14:30:00+00"
+1,23a73680-342c-49d5-bf33-46875adb4e72,"Merci beaucoup, je fais ça de suite !","2026-02-03 14:35:00+00"
