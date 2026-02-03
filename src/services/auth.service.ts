@@ -77,15 +77,19 @@ export class AuthService {
         if (error) throw error;
     }
     async verifyGoogleSession(accessToken: string, refreshToken: string) {
-        const { data, error } = await supabase.auth.getUser(accessToken);
+        const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+        });
 
         if (error) throw error;
+        if (!data.session) throw new Error("Invalid session");
 
         return {
             user: data.user,
             session: {
-                access_token: accessToken,
-                refresh_token: refreshToken,
+                access_token: data.session.access_token,
+                refresh_token: data.session.refresh_token,
             },
         };
     }
