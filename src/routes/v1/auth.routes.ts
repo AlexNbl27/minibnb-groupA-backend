@@ -220,7 +220,7 @@ router.post("/google", validate(googleAuthSchema), async (req, res, next) => {
 
     new OkResponse({ user: data.user, access_token: data.session.access_token }).send(res);
   } catch (error: any) {
-    if (error.message === "Invalid session" || error.message?.includes("invalid") || error.status === 401) {
+    if (error.message === "Invalid session" || error.message?.toLowerCase().includes("invalid") || error.status === 401) {
       next(new UnauthorizedError("Invalid Google session"));
       return;
     }
