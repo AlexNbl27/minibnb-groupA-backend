@@ -87,20 +87,24 @@ export class MessageService {
     async getByConversation(
         conversationId: number,
         userId: string,
-        pagination: { page: number; limit: number } = { page: 1, limit: 10 },
+        pagination?: { page: number; limit: number },
     ): Promise<{ data: Message[]; total: number }> {
         // Vérifier permission
         await this.checkViewPermission(conversationId, userId);
 
-        const from = (pagination.page - 1) * pagination.limit;
-        const to = from + pagination.limit - 1;
-
-        const { data, error, count } = await supabase
+        let query = supabase
             .from("messages")
             .select("*, sender:profiles(first_name, last_name, avatar_url)", { count: "exact" })
             .eq("conversation_id", conversationId)
-            .order("created_at", { ascending: true })
-            .range(from, to);
+            .order("created_at", { ascending: true });
+
+        if (pagination) {
+            const from = (pagination.page - 1) * pagination.limit;
+            const to = from + pagination.limit - 1;
+            query = query.range(from, to);
+        }
+
+        const { data, error, count } = await query;
 
         if (error) throw error;
 
