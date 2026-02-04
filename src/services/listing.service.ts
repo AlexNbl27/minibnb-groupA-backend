@@ -129,6 +129,28 @@ export class ListingService {
         };
     }
 
+    // Récupérer les annonces d'un utilisateur (hôte) - inclut les inactifs
+    async getByUser(
+        userId: string,
+        pagination: { page: number; limit: number } = { page: 1, limit: 10 },
+    ): Promise<{ data: Listing[]; total: number }> {
+        const from = (pagination.page - 1) * pagination.limit;
+        const to = from + pagination.limit - 1;
+
+        const { data, error, count } = await supabase
+            .from("listings")
+            .select("*", { count: "exact" })
+            .eq("host_id", userId)
+            .range(from, to);
+
+        if (error) throw error;
+
+        return {
+            data: data || [],
+            total: count || 0
+        };
+    }
+
     // Récupérer une annonce par ID
     async getById(id: number): Promise<Listing> {
         const { data, error } = await supabase

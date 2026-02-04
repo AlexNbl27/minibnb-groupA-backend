@@ -26,6 +26,68 @@ const messageService = new MessageService();
  *     responses:
  *       200:
  *         description: List of conversations
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       listing_id:
+ *                         type: integer
+ *                       guest_id:
+ *                         type: string
+ *                         format: uuid
+ *                       host_id:
+ *                         type: string
+ *                         format: uuid
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ *                       listing:
+ *                         type: object
+ *                         properties:
+ *                           name:
+ *                             type: string
+ *                           picture_url:
+ *                             type: string
+ *                       guest:
+ *                         type: object
+ *                         properties:
+ *                           first_name:
+ *                             type: string
+ *                           last_name:
+ *                             type: string
+ *                           avatar_url:
+ *                             type: string
+ *                       host:
+ *                         type: object
+ *                         properties:
+ *                           first_name:
+ *                             type: string
+ *                           last_name:
+ *                             type: string
+ *                           avatar_url:
+ *                             type: string
+ *                       last_message:
+ *                         type: object
+ *                         properties:
+ *                           content:
+ *                             type: string
+ *                           created_at:
+ *                             type: string
+ *                           sender_id:
+ *                             type: string
  */
 router.get("/", authenticate, async (req, res, next) => {
     try {
@@ -62,6 +124,24 @@ router.get("/", authenticate, async (req, res, next) => {
  *     responses:
  *       200:
  *         description: Conversation created or retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     listing_id:
+ *                       type: integer
+ *                     guest_id:
+ *                       type: string
+ *                     host_id:
+ *                       type: string
  */
 router.post("/", authenticate, async (req, res, next) => {
     try {
@@ -103,6 +183,39 @@ router.post("/", authenticate, async (req, res, next) => {
  *     responses:
  *       200:
  *         description: List of messages
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       conversation_id:
+ *                         type: integer
+ *                       sender_id:
+ *                         type: string
+ *                         format: uuid
+ *                       content:
+ *                         type: string
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       sender:
+ *                         type: object
+ *                         properties:
+ *                           first_name:
+ *                             type: string
+ *                           last_name:
+ *                             type: string
+ *                           avatar_url:
+ *                             type: string
  */
 router.get("/:conversationId", authenticate, async (req, res, next) => {
     try {
@@ -156,6 +269,26 @@ router.get("/:conversationId", authenticate, async (req, res, next) => {
  *     responses:
  *       201:
  *         description: Message sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     conversation_id:
+ *                       type: integer
+ *                     sender_id:
+ *                       type: string
+ *                     content:
+ *                       type: string
+ *                     created_at:
+ *                       type: string
  */
 router.post(
     "/:conversationId/messages",
