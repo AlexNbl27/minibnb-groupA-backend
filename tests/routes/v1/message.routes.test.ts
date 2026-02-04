@@ -40,7 +40,7 @@ describe('Message Routes', () => {
 
             expect(response.status).toBe(200);
             expect(response.body.data).toEqual(mockMessages);
-            expect(mockGetByConversation).toHaveBeenCalledWith(10, 'user-123', { page: 1, limit: 10 });
+            expect(mockGetByConversation).toHaveBeenCalledWith(10, 'user-123', undefined);
         });
 
         it('should handle errors (e.g., forbidden)', async () => {

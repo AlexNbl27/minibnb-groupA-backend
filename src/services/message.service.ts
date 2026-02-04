@@ -34,7 +34,7 @@ export class MessageService {
         message?: string
     ): Promise<any> {
         // 1. Vérifier si une conversation existe déjà
-        const { data: existingConversation } = await supabase
+        const { data: existingConversation } = await supabaseAdmin
             .from("conversations")
             .select("id")
             .eq("guest_id", guestId)
@@ -92,7 +92,7 @@ export class MessageService {
         // Vérifier permission
         await this.checkViewPermission(conversationId, userId);
 
-        let query = supabase
+        let query = supabaseAdmin
             .from("messages")
             .select("*, sender:profiles(first_name, last_name, avatar_url)", { count: "exact" })
             .eq("conversation_id", conversationId)
