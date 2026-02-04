@@ -1,7 +1,7 @@
 import express from "express";
 import { supabase } from "../../config/supabase";
 import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
-import { OkResponse } from "../../utils/success";
+import { CreatedResponse, OkResponse } from "../../utils/success";
 import { ForbiddenError, NotFoundError } from "../../utils/errors";
 
 const router = express.Router();
@@ -12,6 +12,78 @@ const router = express.Router();
  *   name: Cohosts
  *   description: Co-host management
  */
+
+// POST /api/v1/cohosts (Ajouter un co-hôte)
+/**
+ * @swagger
+ * /cohosts:
+ *   post:
+ *     summary: Add a co-host to a listing
+ *     tags: [Cohosts]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - listing_id
+ *               - co_host_id
+ *             properties:
+ *               listing_id:
+ *                 type: integer
+ *               co_host_id:
+ *                 type: string
+ *               can_edit_listing:
+ *                 type: boolean
+ *               can_access_messages:
+ *                 type: boolean
+ *               can_respond_messages:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Co-host added
+ */
+router.post("/", authenticate, async (req, res, next) => {
+    try {
+        const userId = (req as AuthRequest).user!.id;
+        const { listing_id, co_host_id } = req.body;
+
+        const { data: listing } = await supabase
+            .from("listings")
+            .select("host_id")
+            .eq("id", listing_id)
+            .single();
+
+        if (!listing) {
+            throw new NotFoundError("Listing not found");
+        }
+
+        if (listing.host_id !== userId) {
+            throw new ForbiddenError("Only host can add co-hosts");
+        }
+
+        const { data, error } = await supabase
+            .from("co_hosts")
+            .insert({
+                listing_id,
+                host_id: userId,
+                co_host_id,
+                can_edit_listing: req.body.can_edit_listing || false,
+                can_access_messages: req.body.can_access_messages || false,
+                can_respond_messages: req.body.can_respond_messages || false,
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        new CreatedResponse(data).send(res);
+    } catch (error) {
+        next(error);
+    }
+});
 
 // DELETE /api/v1/cohosts/:id (Retirer co-hôte)
 /**

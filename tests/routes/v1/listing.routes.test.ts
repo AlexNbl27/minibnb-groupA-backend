@@ -32,6 +32,8 @@ jest.mock('../../../src/services/cache.service', () => {
     };
 });
 
+jest.mock('../../../src/config/redis');
+
 // Mock Auth Middleware
 jest.mock('../../../src/middlewares/auth.middleware', () => ({
     authenticate: (req: any, res: any, next: any) => {

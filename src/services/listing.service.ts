@@ -33,6 +33,18 @@ export class ListingService {
             min_price?: number;
             max_price?: number;
             guests?: number;
+            q?: string;
+            host_id?: string;
+            check_in?: string;
+            check_out?: string;
+            property_type?: string;
+            property_types?: string[];
+            amenities?: string[];
+            amenities_any?: string[];
+            min_bedrooms?: number;
+            min_beds?: number;
+            min_bathrooms?: number;
+            min_rating?: number;
         },
         pagination: { page: number; limit: number } = { page: 1, limit: 10 },
     ): Promise<{ data: Listing[]; total: number }> {
@@ -53,6 +65,55 @@ export class ListingService {
         if (filters?.guests) {
             query = query.gte("max_guests", filters.guests);
         }
+        if (filters?.host_id) {
+            query = query.eq("host_id", filters.host_id);
+        }
+        if (filters?.q) {
+            query = query.or(`name.ilike.%${filters.q}%,description.ilike.%${filters.q}%`);
+        }
+
+        // Filtres avancés
+        if (filters?.property_type) {
+            query = query.eq("property_type", filters.property_type);
+        }
+        if (filters?.property_types && filters.property_types.length > 0) {
+            query = query.in("property_type", filters.property_types);
+        }
+        if (filters?.amenities && filters.amenities.length > 0) {
+            query = query.contains("amenities", filters.amenities);
+        }
+        if (filters?.amenities_any && filters.amenities_any.length > 0) {
+            query = query.overlaps("amenities", filters.amenities_any);
+        }
+        if (filters?.min_bedrooms) {
+            query = query.gte("bedrooms", filters.min_bedrooms);
+        }
+        if (filters?.min_beds) {
+            query = query.gte("beds", filters.min_beds);
+        }
+        if (filters?.min_bathrooms) {
+            query = query.gte("bathrooms", filters.min_bathrooms);
+        }
+        if (filters?.min_rating) {
+            query = query.gte("review_scores_value", filters.min_rating);
+        }
+
+        // Filtrage par dates (disponibilité)
+        if (filters?.check_in && filters?.check_out) {
+            const checkIn = filters.check_in;
+            const checkOut = filters.check_out;
+
+            // Trouver les listings occupés
+            const { data: busyListings } = await supabase
+                .from("bookings")
+                .select("listing_id")
+                .or(`and(check_in.lte.${checkOut},check_out.gte.${checkIn})`);
+
+            if (busyListings && busyListings.length > 0) {
+                const busyIds = busyListings.map((b) => b.listing_id);
+                query = query.not("id", "in", `(${busyIds.join(",")})`);
+            }
+        }
 
         const from = (pagination.page - 1) * pagination.limit;
         const to = from + pagination.limit - 1;
@@ -60,6 +121,28 @@ export class ListingService {
         query = query.range(from, to);
 
         const { data, error, count } = await query;
+        if (error) throw error;
+
+        return {
+            data: data || [],
+            total: count || 0
+        };
+    }
+
+    // Récupérer les annonces d'un utilisateur (hôte) - inclut les inactifs
+    async getByUser(
+        userId: string,
+        pagination: { page: number; limit: number } = { page: 1, limit: 10 },
+    ): Promise<{ data: Listing[]; total: number }> {
+        const from = (pagination.page - 1) * pagination.limit;
+        const to = from + pagination.limit - 1;
+
+        const { data, error, count } = await supabase
+            .from("listings")
+            .select("*", { count: "exact" })
+            .eq("host_id", userId)
+            .range(from, to);
+
         if (error) throw error;
 
         return {

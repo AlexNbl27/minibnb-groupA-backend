@@ -1,0 +1,2 @@
+id,host_id,name,description,picture_url,price,address,city,bedrooms,beds,bathrooms,max_guests,property_type,amenities,is_active,created_at,updated_at
+1,41373abd-051f-481e-981e-0153d796cbe2,"Charmant appartement","Un super endroit","https://images.unsplash.com/photo-1502672260266-1c1ef2d93688",120,"1 rue de la Paix","Paris",1,1,1,2,"Appartement","{Wifi,Cuisine}",true,"2026-02-03 10:00:00+00","2026-02-03 10:00:00+00"
