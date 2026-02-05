@@ -209,4 +209,43 @@ export class MessageService {
             throw new ForbiddenError("You cannot view this conversation");
         }
     }
+
+    // Assigner un co-hôte à une conversation
+    async assignCoHost(
+        conversationId: number,
+        coHostId: number,
+        userId: string
+    ): Promise<void> {
+        // Hôte uniquement (ou admin si applicable, mais ici hôte du listing)
+        const { data: conversation } = await supabaseAdmin
+            .from("conversations")
+            .select("listing_id, host_id")
+            .eq("id", conversationId)
+            .single();
+
+        if (!conversation) throw new NotFoundError("Conversation not found");
+
+        if (conversation.host_id !== userId) {
+            throw new ForbiddenError("Only the host can assign a co-host");
+        }
+
+        // Vérifier que le co-hôte existe pour ce listing
+        const { data: coHost } = await supabase
+            .from("co_hosts")
+            .select("id")
+            .eq("listing_id", conversation.listing_id)
+            .eq("id", coHostId) // coHostId est l'ID de la table co_hosts, pas user_id
+            .single();
+
+        if (!coHost) {
+            throw new NotFoundError("Co-host not found for this listing");
+        }
+
+        const { error } = await supabaseAdmin
+            .from("conversations")
+            .update({ co_host_id: coHostId })
+            .eq("id", conversationId);
+
+        if (error) throw error;
+    }
 }
