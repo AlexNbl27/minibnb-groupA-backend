@@ -146,4 +146,86 @@ router.delete("/:id", authenticate, async (req, res, next) => {
     }
 });
 
+// PATCH /api/v1/cohosts/:id (Mettre à jour les permissions)
+/**
+ * @swagger
+ * /cohosts/{id}:
+ *   patch:
+ *     summary: Update co-host permissions
+ *     tags: [Cohosts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               can_edit_listing:
+ *                 type: boolean
+ *               can_access_messages:
+ *                 type: boolean
+ *               can_respond_messages:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Permissions updated
+ */
+router.patch("/:id", authenticate, async (req, res, next) => {
+    try {
+        const coHostId = Number(req.params.id);
+        const userId = (req as AuthRequest).user!.id;
+
+        const { data: coHost, error: fetchError } = await supabase
+            .from("co_hosts")
+            .select("listing_id, co_host_id")
+            .eq("id", coHostId)
+            .single();
+
+        if (fetchError) {
+            if (fetchError.code === 'PGRST116') {
+                throw new NotFoundError("Co-host record not found.");
+            }
+            throw fetchError;
+        }
+
+        const { data: listing } = await supabase
+            .from("listings")
+            .select("host_id")
+            .eq("id", coHost.listing_id)
+            .single();
+
+        if (listing?.host_id !== userId) {
+            throw new ForbiddenError(
+                "Only the host can update co-host permissions",
+            );
+        }
+
+        const updates: any = {};
+        if (req.body.can_edit_listing !== undefined) updates.can_edit_listing = req.body.can_edit_listing;
+        if (req.body.can_access_messages !== undefined) updates.can_access_messages = req.body.can_access_messages;
+        if (req.body.can_respond_messages !== undefined) updates.can_respond_messages = req.body.can_respond_messages;
+
+        const { data: updatedCoHost, error } = await supabase
+            .from("co_hosts")
+            .update(updates)
+            .eq("id", coHostId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        new OkResponse(updatedCoHost).send(res);
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;

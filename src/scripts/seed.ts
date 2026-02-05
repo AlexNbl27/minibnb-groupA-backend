@@ -75,7 +75,7 @@ async function processLine(line: string) {
         bathrooms: metadata.bathrooms,
         max_guests: metadata.beds * 2, // Heuristic
         property_type: metadata.property_type,
-        amenities: ["Wifi", "Kitchen", "Heating", "Washer", "Essentials"],
+        amenities: ["wifi", "kitchen", "heating", "washer"],
         review_scores_value: parseFloat(reviewScore) || null,
         is_active: true
     };

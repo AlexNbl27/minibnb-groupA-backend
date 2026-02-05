@@ -12,6 +12,7 @@ export interface Conversation {
     booking_id: number | null;
     guest_id: string;
     host_id: string;
+    co_host_id: number | null;
     created_at: string;
     updated_at: string;
 }

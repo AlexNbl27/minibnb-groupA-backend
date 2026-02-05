@@ -212,6 +212,7 @@ describe("ListingService", () => {
         name: "Listing 1",
         host_name: "John",
         host_picture_url: "avatar.jpg",
+        co_hosts: [],
         // host property should be removed
       });
     });

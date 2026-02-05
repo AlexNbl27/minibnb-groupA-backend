@@ -2,7 +2,7 @@ import express from "express";
 import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validation.middleware";
 import { MessageService } from "../../services/message.service";
-import { sendMessageSchema } from "../../validators/message.validator";
+import { sendMessageSchema, assignCoHostSchema } from "../../validators/message.validator";
 import { CreatedResponse, OkResponse } from "../../utils/success";
 
 const router = express.Router();
@@ -306,6 +306,62 @@ router.post(
             next(error);
         }
     },
+);
+
+/**
+ * @swagger
+ * /conversations/{conversationId}:
+ *   patch:
+ *     summary: Assign a co-host to a conversation
+ *     tags: [Messages]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: conversationId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - co_host_id
+ *             properties:
+ *               co_host_id:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Co-host assigned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ */
+router.patch(
+    "/:conversationId",
+    authenticate,
+    validate(assignCoHostSchema),
+    async (req, res, next) => {
+        try {
+            await messageService.assignCoHost(
+                Number(req.params.conversationId),
+                req.body.co_host_id,
+                (req as AuthRequest).user!.id
+            );
+            new OkResponse({ message: "Co-host assigned" }).send(res);
+        } catch (error) {
+            next(error);
+        }
+    }
 );
 
 export default router;
