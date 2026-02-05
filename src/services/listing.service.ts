@@ -1,5 +1,5 @@
 import { supabase } from "../config/supabase";
-import { Listing } from "../types/listing.types";
+import { Listing, ListingExtend } from "../types/listing.types";
 import { ForbiddenError, NotFoundError } from "../utils/errors";
 
 export class ListingService {
@@ -40,7 +40,7 @@ export class ListingService {
       min_rating?: number;
     },
     pagination: { page: number; limit: number } = { page: 1, limit: 10 },
-  ): Promise<{ data: Listing[]; total: number }> {
+  ): Promise<{ data: ListingExtend[]; total: number }> {
     let query = supabase.from("listings").select("*, host:profiles(first_name, avatar_url)", { count: "exact" }).eq("is_active", true);
 
     if (filters?.city) {
@@ -111,12 +111,14 @@ export class ListingService {
     if (error) throw error;
 
     return {
-      data: (data || []).map((listing: any) => ({
-        ...listing,
-        host_name: listing.host?.first_name,
-        host_picture_url: listing.host?.avatar_url,
-        host: undefined,
-      })),
+      data: (data || []).map((listing: any) => {
+        const { host, ...rest } = listing;
+        return {
+          ...rest,
+          host_name: host?.first_name,
+          host_picture_url: host?.avatar_url,
+        };
+      }),
       total: count || 0,
     };
   }
@@ -137,21 +139,21 @@ export class ListingService {
   }
 
   // Récupérer une annonce par ID
-  async getById(id: number): Promise<Listing> {
+  async getById(id: number): Promise<ListingExtend> {
     const { data, error } = await supabase.from("listings").select("*, host:profiles(first_name, avatar_url)").eq("id", id).single();
 
     if (error || !data) {
       throw new NotFoundError("Listing not found");
     }
 
-    const listingWithHost = {
-      ...data,
-      host_name: (data as any).host?.first_name,
-      host_picture_url: (data as any).host?.avatar_url,
-      host: undefined,
+    const { host, ...listingData } = data as any;
+    const listingWithHost: ListingExtend = {
+      ...listingData,
+      host_name: host?.first_name,
+      host_picture_url: host?.avatar_url,
     };
 
-    return listingWithHost as unknown as Listing;
+    return listingWithHost;
   }
 
   // Mettre à jour une annonce

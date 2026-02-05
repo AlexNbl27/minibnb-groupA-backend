@@ -22,3 +22,7 @@ export interface Listing {
   created_at: string;
   updated_at: string;
 }
+
+export interface ListingExtend extends Listing {
+  host_picture_url?: string;
+}

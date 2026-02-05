@@ -170,6 +170,10 @@ const cacheService = new CacheService();
  *                       updated_at:
  *                         type: string
  *                         format: date-time
+ *                       host_name:
+ *                         type: string
+ *                       host_picture_url:
+ *                         type: string
  */
 router.get("/", cacheMiddleware(300), async (req, res, next) => {
   try {
@@ -326,7 +330,7 @@ router.get("/me", authenticate, async (req, res, next) => {
   }
 });
 
-// GET /api/v1/listings/:id (avec cache 1h)
+// GET /api/v1/listings/:id
 /**
  * @swagger
  * /listings/{id}:
@@ -399,6 +403,10 @@ router.get("/me", authenticate, async (req, res, next) => {
  *                     updated_at:
  *                       type: string
  *                       format: date-time
+ *                     host_name:
+ *                       type: string
+ *                     host_picture_url:
+ *                       type: string
  */
 router.get("/:id", async (req, res, next) => {
   try {
