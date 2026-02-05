@@ -4,10 +4,7 @@ import { validate } from "../../middlewares/validation.middleware";
 import { cacheMiddleware } from "../../middlewares/cache.middleware";
 import { ListingService } from "../../services/listing.service";
 import { CacheService } from "../../services/cache.service";
-import {
-    createListingSchema,
-    updateListingSchema,
-} from "../../validators/listing.validator";
+import { createListingSchema, updateListingSchema } from "../../validators/listing.validator";
 import { CreatedResponse, OkResponse } from "../../utils/success";
 
 const router = express.Router();
@@ -173,69 +170,63 @@ const cacheService = new CacheService();
  *                       updated_at:
  *                         type: string
  *                         format: date-time
+ *                       host_name:
+ *                         type: string
+ *                         nullable: true
+ *                       host_picture_url:
+ *                         type: string
+ *                         nullable: true
  */
 router.get("/", cacheMiddleware(300), async (req, res, next) => {
-    try {
-        // Parse comma-separated values into arrays
-        const parseArray = (value: unknown): string[] | undefined => {
-            if (typeof value === "string" && value.trim()) {
-                const items = value
-                    .split(",")
-                    .map((v) => v.trim())
-                    .filter((v) => v.length > 0);
-                return items.length > 0 ? items : undefined;
-            }
-            return undefined;
-        };
+  try {
+    // Parse comma-separated values into arrays
+    const parseArray = (value: unknown): string[] | undefined => {
+      if (typeof value === "string" && value.trim()) {
+        const items = value
+          .split(",")
+          .map((v) => v.trim())
+          .filter((v) => v.length > 0);
+        return items.length > 0 ? items : undefined;
+      }
+      return undefined;
+    };
 
-        const filters = {
-            city: req.query.city as string,
-            min_price: req.query.min_price
-                ? Number(req.query.min_price)
-                : undefined,
-            max_price: req.query.max_price
-                ? Number(req.query.max_price)
-                : undefined,
-            guests: req.query.guests ? Number(req.query.guests) : undefined,
-            q: req.query.q as string,
-            host_id: req.query.host_id as string,
-            check_in: req.query.check_in as string,
-            check_out: req.query.check_out as string,
-            // Filtres avancés
-            property_type: req.query.property_type as string,
-            property_types: parseArray(req.query.property_types),
-            amenities: parseArray(req.query.amenities),
-            amenities_any: parseArray(req.query.amenities_any),
-            min_bedrooms: req.query.min_bedrooms
-                ? Number(req.query.min_bedrooms)
-                : undefined,
-            min_beds: req.query.min_beds
-                ? Number(req.query.min_beds)
-                : undefined,
-            min_bathrooms: req.query.min_bathrooms
-                ? Number(req.query.min_bathrooms)
-                : undefined,
-            min_rating: req.query.min_rating
-                ? Number(req.query.min_rating)
-                : undefined,
-        };
+    const filters = {
+      city: req.query.city as string,
+      min_price: req.query.min_price ? Number(req.query.min_price) : undefined,
+      max_price: req.query.max_price ? Number(req.query.max_price) : undefined,
+      guests: req.query.guests ? Number(req.query.guests) : undefined,
+      q: req.query.q as string,
+      host_id: req.query.host_id as string,
+      check_in: req.query.check_in as string,
+      check_out: req.query.check_out as string,
+      // Filtres avancés
+      property_type: req.query.property_type as string,
+      property_types: parseArray(req.query.property_types),
+      amenities: parseArray(req.query.amenities),
+      amenities_any: parseArray(req.query.amenities_any),
+      min_bedrooms: req.query.min_bedrooms ? Number(req.query.min_bedrooms) : undefined,
+      min_beds: req.query.min_beds ? Number(req.query.min_beds) : undefined,
+      min_bathrooms: req.query.min_bathrooms ? Number(req.query.min_bathrooms) : undefined,
+      min_rating: req.query.min_rating ? Number(req.query.min_rating) : undefined,
+    };
 
-        const pagination = {
-            page: req.query.page ? Number(req.query.page) : 1,
-            limit: req.query.limit ? Number(req.query.limit) : 10,
-        };
+    const pagination = {
+      page: req.query.page ? Number(req.query.page) : 1,
+      limit: req.query.limit ? Number(req.query.limit) : 10,
+    };
 
-        const result = await listingService.getAll(filters, pagination);
+    const result = await listingService.getAll(filters, pagination);
 
-        new OkResponse(result.data, {
-            total: result.total,
-            page: pagination.page,
-            limit: pagination.limit,
-            totalPages: Math.ceil(result.total / pagination.limit)
-        }).send(res);
-    } catch (error) {
-        next(error);
-    }
+    new OkResponse(result.data, {
+      total: result.total,
+      page: pagination.page,
+      limit: pagination.limit,
+      totalPages: Math.ceil(result.total / pagination.limit),
+    }).send(res);
+  } catch (error) {
+    next(error);
+  }
 });
 
 // GET /api/v1/listings/me (Host listings)
@@ -322,29 +313,26 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
  *                         format: date-time
  */
 router.get("/me", authenticate, async (req, res, next) => {
-    try {
-        const pagination = {
-            page: req.query.page ? Number(req.query.page) : 1,
-            limit: req.query.limit ? Number(req.query.limit) : 10,
-        };
+  try {
+    const pagination = {
+      page: req.query.page ? Number(req.query.page) : 1,
+      limit: req.query.limit ? Number(req.query.limit) : 10,
+    };
 
-        const result = await listingService.getByUser(
-            (req as AuthRequest).user!.id,
-            pagination
-        );
+    const result = await listingService.getByUser((req as AuthRequest).user!.id, pagination);
 
-        new OkResponse(result.data, {
-            total: result.total,
-            page: pagination.page,
-            limit: pagination.limit,
-            totalPages: Math.ceil(result.total / pagination.limit)
-        }).send(res);
-    } catch (error) {
-        next(error);
-    }
+    new OkResponse(result.data, {
+      total: result.total,
+      page: pagination.page,
+      limit: pagination.limit,
+      totalPages: Math.ceil(result.total / pagination.limit),
+    }).send(res);
+  } catch (error) {
+    next(error);
+  }
 });
 
-// GET /api/v1/listings/:id (avec cache 1h)
+// GET /api/v1/listings/:id
 /**
  * @swagger
  * /listings/{id}:
@@ -417,14 +405,20 @@ router.get("/me", authenticate, async (req, res, next) => {
  *                     updated_at:
  *                       type: string
  *                       format: date-time
+ *                     host_name:
+ *                       type: string
+ *                       nullable: true
+ *                     host_picture_url:
+ *                       type: string
+ *                       nullable: true
  */
-router.get("/:id", cacheMiddleware(3600), async (req, res, next) => {
-    try {
-        const listing = await listingService.getById(Number(req.params.id));
-        new OkResponse(listing).send(res);
-    } catch (error) {
-        next(error);
-    }
+router.get("/:id", async (req, res, next) => {
+  try {
+    const listing = await listingService.getById(Number(req.params.id));
+    new OkResponse(listing).send(res);
+  } catch (error) {
+    next(error);
+  }
 });
 
 // POST /api/v1/listings (protégé)
@@ -485,26 +479,18 @@ router.get("/:id", cacheMiddleware(3600), async (req, res, next) => {
  *       201:
  *         description: Listing created
  */
-router.post(
-    "/",
-    authenticate,
-    validate(createListingSchema),
-    async (req, res, next) => {
-        try {
-            const listing = await listingService.create(
-                (req as AuthRequest).user!.id,
-                req.body,
-            );
+router.post("/", authenticate, validate(createListingSchema), async (req, res, next) => {
+  try {
+    const listing = await listingService.create((req as AuthRequest).user!.id, req.body);
 
-            // Invalider cache
-            await cacheService.invalidatePattern("cache:/api/v1/listings?*");
+    // Invalider cache
+    await cacheService.invalidatePattern("cache:/api/v1/listings?*");
 
-            new CreatedResponse(listing).send(res);
-        } catch (error) {
-            next(error);
-        }
-    },
-);
+    new CreatedResponse(listing).send(res);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // PATCH /api/v1/listings/:id (protégé)
 /**
@@ -565,27 +551,18 @@ router.post(
  *       200:
  *         description: Listing updated
  */
-router.patch(
-    "/:id",
-    authenticate,
-    validate(updateListingSchema),
-    async (req, res, next) => {
-        try {
-            const listing = await listingService.update(
-                Number(req.params.id),
-                (req as AuthRequest).user!.id,
-                req.body,
-            );
+router.patch("/:id", authenticate, validate(updateListingSchema), async (req, res, next) => {
+  try {
+    const listing = await listingService.update(Number(req.params.id), (req as AuthRequest).user!.id, req.body);
 
-            // Invalider cache
-            await cacheService.invalidateListingCache(Number(req.params.id));
+    // Invalider cache
+    await cacheService.invalidateListingCache(Number(req.params.id));
 
-            new OkResponse(listing).send(res);
-        } catch (error) {
-            next(error);
-        }
-    },
-);
+    new OkResponse(listing).send(res);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // DELETE /api/v1/listings/:id (protégé)
 /**
@@ -607,19 +584,16 @@ router.patch(
  *         description: Listing deleted
  */
 router.delete("/:id", authenticate, async (req, res, next) => {
-    try {
-        await listingService.delete(
-            Number(req.params.id),
-            (req as AuthRequest).user!.id,
-        );
+  try {
+    await listingService.delete(Number(req.params.id), (req as AuthRequest).user!.id);
 
-        // Invalider cache
-        await cacheService.invalidateListingCache(Number(req.params.id));
+    // Invalider cache
+    await cacheService.invalidateListingCache(Number(req.params.id));
 
-        new OkResponse({ message: "Listing deleted" }).send(res);
-    } catch (error) {
-        next(error);
-    }
+    new OkResponse({ message: "Listing deleted" }).send(res);
+  } catch (error) {
+    next(error);
+  }
 });
 
 // GET /api/v1/listings/:id/bookings (Host only)
@@ -655,27 +629,23 @@ const bookingService = new BookingService();
  *         description: List of bookings
  */
 router.get("/:id/bookings", authenticate, async (req, res, next) => {
-    try {
-        const pagination = {
-            page: req.query.page ? Number(req.query.page) : 1,
-            limit: req.query.limit ? Number(req.query.limit) : 10,
-        };
+  try {
+    const pagination = {
+      page: req.query.page ? Number(req.query.page) : 1,
+      limit: req.query.limit ? Number(req.query.limit) : 10,
+    };
 
-        const result = await bookingService.getByListing(
-            Number(req.params.id),
-            (req as AuthRequest).user!.id,
-            pagination
-        );
+    const result = await bookingService.getByListing(Number(req.params.id), (req as AuthRequest).user!.id, pagination);
 
-        new OkResponse(result.data, {
-            total: result.total,
-            page: pagination.page,
-            limit: pagination.limit,
-            totalPages: Math.ceil(result.total / pagination.limit)
-        }).send(res);
-    } catch (error) {
-        next(error);
-    }
+    new OkResponse(result.data, {
+      total: result.total,
+      page: pagination.page,
+      limit: pagination.limit,
+      totalPages: Math.ceil(result.total / pagination.limit),
+    }).send(res);
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;
