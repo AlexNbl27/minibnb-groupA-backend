@@ -6,6 +6,7 @@ import bookingRoutes from "./booking.routes";
 import messageRoutes from "./message.routes";
 import cohostRoutes from "./cohost.routes";
 import availabilityRoutes from "./availability.routes";
+import amenityRoutes from "./amenity.routes";
 
 const router = express.Router();
 
@@ -20,5 +21,6 @@ router.use("/bookings", bookingRoutes);
 router.use("/conversations", messageRoutes);
 router.use("/cohosts", cohostRoutes);
 router.use("/listings", availabilityRoutes);
+router.use("/amenities", amenityRoutes);
 
 export default router;

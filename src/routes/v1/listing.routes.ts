@@ -29,6 +29,7 @@ const cacheService = new CacheService();
  *         name: city
  *         schema:
  *           type: string
+ *           description: Comma-separated amenity slugs (e.g. wifi,pool)
  *       - in: query
  *         name: min_price
  *         schema:
@@ -46,41 +47,49 @@ const cacheService = new CacheService();
  *         description: Search query (searches in name and description)
  *         schema:
  *           type: string
+ *           description: Comma-separated amenity slugs (e.g. wifi,pool)
  *       - in: query
  *         name: host_id
  *         description: Filter listings by host ID
  *         schema:
  *           type: string
+ *           description: Comma-separated amenity slugs (e.g. wifi,pool)
  *       - in: query
  *         name: check_in
  *         schema:
  *           type: string
+ *           description: Comma-separated amenity slugs (e.g. wifi,pool)
  *           format: date
  *       - in: query
  *         name: check_out
  *         schema:
  *           type: string
+ *           description: Comma-separated amenity slugs (e.g. wifi,pool)
  *           format: date
  *       - in: query
  *         name: property_type
  *         description: Exact property type (e.g., "Entire home")
  *         schema:
  *           type: string
+ *           description: Comma-separated amenity slugs (e.g. wifi,pool)
  *       - in: query
  *         name: property_types
  *         description: Multiple property types, comma-separated
  *         schema:
  *           type: string
+ *           description: Comma-separated amenity slugs (e.g. wifi,pool)
  *       - in: query
  *         name: amenities
  *         description: Required amenities, comma-separated (ALL must match)
  *         schema:
  *           type: string
+ *           description: Comma-separated amenity slugs (e.g. wifi,pool)
  *       - in: query
  *         name: amenities_any
  *         description: Optional amenities, comma-separated (ANY must match)
  *         schema:
  *           type: string
+ *           description: Comma-separated amenity slugs (e.g. wifi,pool)
  *       - in: query
  *         name: min_bedrooms
  *         schema:
@@ -160,6 +169,7 @@ const cacheService = new CacheService();
  *                         type: array
  *                         items:
  *                           type: string
+ *                           description: Amenity slug
  *                       review_scores_value:
  *                         type: number
  *                       is_active:
@@ -301,6 +311,7 @@ router.get("/", cacheMiddleware(300), async (req, res, next) => {
  *                         type: array
  *                         items:
  *                           type: string
+ *                           description: Amenity slug
  *                       review_scores_value:
  *                         type: number
  *                       is_active:
@@ -475,6 +486,7 @@ router.get("/:id", async (req, res, next) => {
  *                 type: array
  *                 items:
  *                   type: string
+ *                   description: Amenity slug
  *     responses:
  *       201:
  *         description: Listing created
@@ -545,6 +557,7 @@ router.post("/", authenticate, validate(createListingSchema), async (req, res, n
  *                 type: array
  *                 items:
  *                   type: string
+ *                   description: Amenity slug
  *               is_active:
  *                 type: boolean
  *     responses:
