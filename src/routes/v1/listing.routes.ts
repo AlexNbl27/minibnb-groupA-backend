@@ -172,8 +172,10 @@ const cacheService = new CacheService();
  *                         format: date-time
  *                       host_name:
  *                         type: string
+ *                         nullable: true
  *                       host_picture_url:
  *                         type: string
+ *                         nullable: true
  */
 router.get("/", cacheMiddleware(300), async (req, res, next) => {
   try {
@@ -405,8 +407,10 @@ router.get("/me", authenticate, async (req, res, next) => {
  *                       format: date-time
  *                     host_name:
  *                       type: string
+ *                       nullable: true
  *                     host_picture_url:
  *                       type: string
+ *                       nullable: true
  */
 router.get("/:id", async (req, res, next) => {
   try {
