@@ -25,4 +25,19 @@ export interface Listing {
 
 export interface ListingExtend extends Listing {
   host_picture_url?: string;
+  co_hosts?: {
+    id: number;
+    listing_id: number;
+    host_id: string;
+    co_host_id: string;
+    can_edit_listing: boolean;
+    can_access_messages: boolean;
+    can_respond_messages: boolean;
+    user: {
+      first_name: string;
+      last_name: string;
+      avatar_url: string;
+      email: string;
+    };
+  }[];
 }

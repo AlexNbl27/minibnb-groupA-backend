@@ -5,12 +5,13 @@ import listingRoutes from "./listing.routes";
 import bookingRoutes from "./booking.routes";
 import messageRoutes from "./message.routes";
 import cohostRoutes from "./cohost.routes";
+import userRoutes from "./user.routes";
 import availabilityRoutes from "./availability.routes";
 
 const router = express.Router();
 
 router.get("/", (req, res) => {
-    res.json({ message: "Welcome to API v1" });
+  res.json({ message: "Welcome to API v1" });
 });
 
 router.use("/auth", authRoutes);
@@ -19,6 +20,7 @@ router.use("/listings", listingRoutes);
 router.use("/bookings", bookingRoutes);
 router.use("/conversations", messageRoutes);
 router.use("/cohosts", cohostRoutes);
+router.use("/users", userRoutes);
 router.use("/listings", availabilityRoutes);
 
 export default router;

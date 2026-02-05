@@ -597,6 +597,34 @@ router.delete("/:id", authenticate, async (req, res, next) => {
 });
 
 // GET /api/v1/listings/:id/bookings (Host only)
+// GET /api/v1/listings/:id/co-hosts (Auth required)
+/**
+ * @swagger
+ * /listings/{id}/co-hosts:
+ *   get:
+ *     summary: Get co-hosts for a listing
+ *     tags: [Listings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of co-hosts
+ */
+router.get("/:id/co-hosts", authenticate, async (req, res, next) => {
+  try {
+    const coHosts = await listingService.getCoHosts(Number(req.params.id));
+    new OkResponse(coHosts).send(res);
+  } catch (error) {
+    next(error);
+  }
+});
+
 import { BookingService } from "../../services/booking.service";
 const bookingService = new BookingService();
 

@@ -147,13 +147,26 @@ export class ListingService {
     }
 
     const { host, ...listingData } = data as any;
+
+    // Récupérer les co-hôtes
+    const { data: coHosts } = await supabase.from("co_hosts").select("*, user:profiles!co_host_id(first_name, last_name, avatar_url, email)").eq("listing_id", id);
+
     const listingWithHost: ListingExtend = {
       ...listingData,
       host_name: host?.first_name,
       host_picture_url: host?.avatar_url,
+      co_hosts: coHosts || [],
     };
 
     return listingWithHost;
+  }
+
+  // Récupérer les co-hôtes d'une annonce
+  async getCoHosts(listingId: number): Promise<any[]> {
+    const { data: coHosts, error } = await supabase.from("co_hosts").select("*, user:profiles!co_host_id(first_name, last_name, avatar_url, email)").eq("listing_id", listingId);
+
+    if (error) throw error;
+    return coHosts || [];
   }
 
   // Mettre à jour une annonce
