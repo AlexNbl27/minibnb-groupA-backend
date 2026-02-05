@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { VALID_AMENITY_SLUGS } from "../constants/amenities";
 
 export const createListingSchema = z.object({
     body: z.object({
@@ -16,7 +17,7 @@ export const createListingSchema = z.object({
         max_guests: z.number().int().positive().default(2),
         property_type: z.string().default("Rental unit"),
         rules: z.string().optional(),
-        amenities: z.array(z.string()).default([]),
+        amenities: z.array(z.enum(VALID_AMENITY_SLUGS as [string, ...string[]])).default([]),
     }),
 });
 
@@ -32,5 +33,6 @@ export const updateListingSchema = z.object({
         address: z.string().min(5).optional(),
         city: z.string().min(2).optional(),
         is_active: z.boolean().optional(),
+        amenities: z.array(z.enum(VALID_AMENITY_SLUGS as [string, ...string[]])).optional(),
     }),
 });
