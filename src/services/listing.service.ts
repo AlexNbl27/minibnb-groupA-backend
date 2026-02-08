@@ -1,4 +1,4 @@
-import { supabase } from "../config/supabase";
+import { supabase, supabaseAdmin } from "../config/supabase";
 import { Listing, ListingExtend } from "../types/listing.types";
 import { ForbiddenError, NotFoundError } from "../utils/errors";
 
@@ -163,7 +163,10 @@ export class ListingService {
 
   // Récupérer les co-hôtes d'une annonce
   async getCoHosts(listingId: number): Promise<any[]> {
-    const { data: coHosts, error } = await supabase.from("co_hosts").select("*, user:profiles!co_host_id(first_name, last_name, avatar_url, email)").eq("listing_id", listingId);
+    const { data: coHosts, error } = await supabaseAdmin
+      .from("co_hosts")
+      .select("id, can_edit_listing, can_access_messages, can_respond_messages, user:profiles!co_host_id(first_name, last_name, avatar_url, email)")
+      .eq("listing_id", listingId);
 
     if (error) throw error;
     return coHosts || [];
@@ -199,12 +202,12 @@ export class ListingService {
   // Vérifier permission d'édition
   private async checkEditPermission(listingId: number, userId: string): Promise<boolean> {
     // Vérifier si hôte principal
-    const { data: listing } = await supabase.from("listings").select("host_id").eq("id", listingId).single();
+    const { data: listing } = await supabaseAdmin.from("listings").select("host_id").eq("id", listingId).single();
 
     if (listing?.host_id === userId) return true;
 
     // Vérifier si co-hôte avec permission
-    const { data: coHost } = await supabase.from("co_hosts").select("can_edit_listing").eq("listing_id", listingId).eq("co_host_id", userId).single();
+    const { data: coHost } = await supabaseAdmin.from("co_hosts").select("can_edit_listing").eq("listing_id", listingId).eq("co_host_id", userId).single();
 
     return coHost?.can_edit_listing || false;
   }
