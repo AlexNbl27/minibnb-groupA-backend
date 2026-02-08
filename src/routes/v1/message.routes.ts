@@ -90,14 +90,12 @@ const messageService = new MessageService();
  *                             type: string
  */
 router.get("/", authenticate, async (req, res, next) => {
-    try {
-        const conversations = await messageService.getUserConversations(
-            (req as AuthRequest).user!.id
-        );
-        new OkResponse(conversations).send(res);
-    } catch (error) {
-        next(error);
-    }
+  try {
+    const conversations = await messageService.getUserConversations((req as AuthRequest).user!.id);
+    new OkResponse(conversations).send(res);
+  } catch (error) {
+    next(error);
+  }
 });
 
 /**
@@ -144,16 +142,12 @@ router.get("/", authenticate, async (req, res, next) => {
  *                       type: string
  */
 router.post("/", authenticate, async (req, res, next) => {
-    try {
-        const conversation = await messageService.createConversation(
-            (req as AuthRequest).user!.id,
-            req.body.listing_id,
-            req.body.message
-        );
-        new CreatedResponse(conversation).send(res);
-    } catch (error) {
-        next(error);
-    }
+  try {
+    const conversation = await messageService.createConversation((req as AuthRequest).user!.id, req.body.listing_id, req.body.message);
+    new CreatedResponse(conversation).send(res);
+  } catch (error) {
+    next(error);
+  }
 });
 
 /**
@@ -218,27 +212,27 @@ router.post("/", authenticate, async (req, res, next) => {
  *                             type: string
  */
 router.get("/:conversationId", authenticate, async (req, res, next) => {
-    try {
-        const pagination = (req.query.page && req.query.limit) ? {
+  try {
+    const pagination =
+      req.query.page && req.query.limit
+        ? {
             page: Number(req.query.page),
             limit: Number(req.query.limit),
-        } : undefined;
+          }
+        : undefined;
 
-        const result = await messageService.getByConversation(
-            Number(req.params.conversationId),
-            (req as AuthRequest).user!.id,
-            pagination
-        );
+    const result = await messageService.getByConversation(Number(req.params.conversationId), (req as AuthRequest).user!.id, pagination);
 
-        new OkResponse(result.data, {
-            total: result.total,
-            page: pagination?.page || 1,
-            limit: pagination?.limit || result.total,
-            totalPages: pagination ? Math.ceil(result.total / pagination.limit) : 1
-        }).send(res);
-    } catch (error) {
-        next(error);
-    }
+    new OkResponse(result.data, {
+      total: result.total,
+      page: pagination?.page || 1,
+      limit: pagination?.limit || result.total,
+      totalPages: pagination ? Math.ceil(result.total / pagination.limit) : 1,
+      conversation: result.conversation,
+    }).send(res);
+  } catch (error) {
+    next(error);
+  }
 });
 
 /**
@@ -290,23 +284,14 @@ router.get("/:conversationId", authenticate, async (req, res, next) => {
  *                     created_at:
  *                       type: string
  */
-router.post(
-    "/:conversationId/messages",
-    authenticate,
-    validate(sendMessageSchema),
-    async (req, res, next) => {
-        try {
-            const message = await messageService.send(
-                (req as AuthRequest).user!.id,
-                Number(req.params.conversationId),
-                req.body.content,
-            );
-            new CreatedResponse(message).send(res);
-        } catch (error) {
-            next(error);
-        }
-    },
-);
+router.post("/:conversationId/messages", authenticate, validate(sendMessageSchema), async (req, res, next) => {
+  try {
+    const message = await messageService.send((req as AuthRequest).user!.id, Number(req.params.conversationId), req.body.content);
+    new CreatedResponse(message).send(res);
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * @swagger
@@ -346,22 +331,13 @@ router.post(
  *                 message:
  *                   type: string
  */
-router.patch(
-    "/:conversationId",
-    authenticate,
-    validate(assignCoHostSchema),
-    async (req, res, next) => {
-        try {
-            await messageService.assignCoHost(
-                Number(req.params.conversationId),
-                req.body.co_host_id,
-                (req as AuthRequest).user!.id
-            );
-            new OkResponse({ message: "Co-host assigned" }).send(res);
-        } catch (error) {
-            next(error);
-        }
-    }
-);
+router.patch("/:conversationId", authenticate, validate(assignCoHostSchema), async (req, res, next) => {
+  try {
+    await messageService.assignCoHost(Number(req.params.conversationId), req.body.co_host_id, (req as AuthRequest).user!.id);
+    new OkResponse({ message: "Co-host assigned" }).send(res);
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default router;
