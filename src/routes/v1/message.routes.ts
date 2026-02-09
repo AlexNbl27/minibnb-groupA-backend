@@ -1,6 +1,7 @@
 import express from "express";
 import { authenticate, AuthRequest } from "../../middlewares/auth.middleware";
 import { validate } from "../../middlewares/validation.middleware";
+import { cacheMiddleware } from "../../middlewares/cache.middleware";
 import { MessageService } from "../../services/message.service";
 import { sendMessageSchema, assignCoHostSchema } from "../../validators/message.validator";
 import { CreatedResponse, OkResponse } from "../../utils/success";
@@ -89,7 +90,7 @@ const messageService = new MessageService();
  *                           sender_id:
  *                             type: string
  */
-router.get("/", authenticate, async (req, res, next) => {
+router.get("/", authenticate, cacheMiddleware(120), async (req, res, next) => {
   try {
     const conversations = await messageService.getUserConversations((req as AuthRequest).user!.id);
     new OkResponse(conversations).send(res);
@@ -211,7 +212,7 @@ router.post("/", authenticate, async (req, res, next) => {
  *                           avatar_url:
  *                             type: string
  */
-router.get("/:conversationId", authenticate, async (req, res, next) => {
+router.get("/:conversationId", authenticate, cacheMiddleware(60), async (req, res, next) => {
   try {
     const pagination =
       req.query.page && req.query.limit
