@@ -79,13 +79,20 @@ export class MessageService {
                 *,
                 listing:listings(name, picture_url),
                 guest:profiles!conversations_guest_id_fkey(first_name, last_name, avatar_url),
-                host:profiles!conversations_host_id_fkey(first_name, last_name, avatar_url)
+                host:profiles!conversations_host_id_fkey(first_name, last_name, avatar_url),
+                assigned_co_host:co_hosts!conversations_co_host_id_fkey(co_host_id, user:profiles!co_hosts_co_host_id_fkey(first_name, last_name, avatar_url))
             `,
       )
       .eq("id", conversationId)
       .single();
 
     if (conversationError) throw conversationError;
+
+    // Fetch all co-hosts for this listing
+    const { data: listingCoHosts } = await supabaseAdmin
+      .from("co_hosts")
+      .select("co_host_id, can_respond_messages, can_access_messages, user:profiles!co_hosts_co_host_id_fkey(first_name, last_name, avatar_url)")
+      .eq("listing_id", conversationData.listing_id);
 
     let query = supabaseAdmin
       .from("messages")
@@ -106,7 +113,10 @@ export class MessageService {
     return {
       data: data || [],
       total: count || 0,
-      conversation: conversationData,
+      conversation: {
+        ...conversationData,
+        listing_co_hosts: listingCoHosts || [],
+      },
     };
   }
 

@@ -91,9 +91,11 @@ describe("MessageService", () => {
           guest_id: "user-id",
           host_id: "host-id",
           listing_id: 1,
+          co_host_id: null,
           listing: { name: "Test Listing", picture_url: "test.jpg" },
           guest: { first_name: "Guest", last_name: "User", avatar_url: null },
           host: { first_name: "Host", last_name: "User", avatar_url: null },
+          co_host: null,
         },
         error: null,
       });
