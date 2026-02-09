@@ -112,8 +112,8 @@ export class MessageService {
 
   // Récupérer les conversations d'un utilisateur
   async getUserConversations(userId: string) {
-    // Utilisation de supabaseAdmin car RLS bloque les SELECT sur conversations
-    const { data, error } = await supabaseAdmin
+    // Step 1: Get conversations where user is guest or host
+    const { data: directConversations, error: directError } = await supabaseAdmin
       .from("conversations")
       .select(
         `
@@ -128,9 +128,42 @@ export class MessageService {
       .order("created_at", { foreignTable: "messages", ascending: false })
       .limit(1, { foreignTable: "messages" });
 
-    if (error) throw error;
+    if (directError) throw directError;
 
-    return data
+    // Step 2: Get listing IDs where user is co-host with message access
+    const { data: coHostListings, error: coHostError } = await supabaseAdmin.from("co_hosts").select("listing_id").eq("co_host_id", userId).eq("can_access_messages", true);
+
+    if (coHostError) throw coHostError;
+
+    const listingIds = coHostListings?.map((ch) => ch.listing_id) || [];
+
+    // Step 3: Get conversations for those listings (if any)
+    let coHostConversations: any[] = [];
+    if (listingIds.length > 0) {
+      const { data: coHostConvs, error: coHostConvsError } = await supabaseAdmin
+        .from("conversations")
+        .select(
+          `
+                    *,
+                    listing:listings(name, picture_url),
+                    guest:profiles!conversations_guest_id_fkey(first_name, last_name, avatar_url),
+                    host:profiles!conversations_host_id_fkey(first_name, last_name, avatar_url),
+                    messages(content, created_at, sender_id)
+                `,
+        )
+        .in("listing_id", listingIds)
+        .order("created_at", { foreignTable: "messages", ascending: false })
+        .limit(1, { foreignTable: "messages" });
+
+      if (coHostConvsError) throw coHostConvsError;
+      coHostConversations = coHostConvs || [];
+    }
+
+    // Step 4: Merge and deduplicate
+    const allConversations = [...(directConversations || []), ...coHostConversations];
+    const uniqueConversations = Array.from(new Map(allConversations.map((c) => [c.id, c])).values());
+
+    return uniqueConversations
       .map((conv: any) => ({
         ...conv,
         last_message: conv.messages && conv.messages.length > 0 ? conv.messages[0] : null,
@@ -155,7 +188,7 @@ export class MessageService {
     }
 
     // Co-hôte avec can_respond_messages
-    const { data: coHost } = await supabase.from("co_hosts").select("can_respond_messages").eq("listing_id", conversation.listing_id).eq("co_host_id", userId).single();
+    const { data: coHost } = await supabaseAdmin.from("co_hosts").select("can_respond_messages").eq("listing_id", conversation.listing_id).eq("co_host_id", userId).single();
 
     if (!coHost?.can_respond_messages) {
       throw new ForbiddenError("You cannot send messages in this conversation");
@@ -173,7 +206,7 @@ export class MessageService {
       return;
     }
 
-    const { data: coHost } = await supabase.from("co_hosts").select("can_access_messages").eq("listing_id", conversation.listing_id).eq("co_host_id", userId).single();
+    const { data: coHost } = await supabaseAdmin.from("co_hosts").select("can_access_messages").eq("listing_id", conversation.listing_id).eq("co_host_id", userId).single();
 
     if (!coHost?.can_access_messages) {
       throw new ForbiddenError("You cannot view this conversation");
