@@ -153,11 +153,10 @@ router.patch("/me", authenticate, validate(updateProfileSchema), async (req, res
 
     const { data, error } = await supabase
       .from("profiles")
-      .upsert({
-        id: (req as AuthRequest).user!.id,
-        email: (req as AuthRequest).user!.email,
+      .update({
         ...req.body,
       })
+      .eq("id", (req as AuthRequest).user!.id)
       .select()
       .single();
 
